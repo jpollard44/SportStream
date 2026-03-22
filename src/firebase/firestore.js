@@ -228,6 +228,8 @@ export async function createScheduledGame(clubId, {
   homeTeam, awayTeam, sport,
   scheduledAt, venue, gameType,
   awayClubId,
+  homeLineup,
+  awayLineup,
 }) {
   const ref = await addDoc(collection(db, 'games'), {
     clubId,
@@ -247,13 +249,26 @@ export async function createScheduledGame(clubId, {
     period: 1, totalPeriods: null, periodLength: null, clockElapsed: 0, clockRunning: false,
     inning: 1, inningHalf: 'top', outs: 0, totalInnings: null,
     bases: null, balls: null, strikes: null,
-    homeLineup: [], awayLineup: [], homeBatterIdx: 0, awayBatterIdx: 0,
+    homeLineup: homeLineup || [], awayLineup: awayLineup || [], homeBatterIdx: 0, awayBatterIdx: 0,
     tournamentId: null, bracketMatchId: null, leagueId: null,
     homeLeagueTeamId: null, awayLeagueTeamId: null,
     lastPlayId: null, lastPlayUndone: false, peerId: null,
     createdAt: serverTimestamp(), startedAt: null, endedAt: null,
   })
   return ref.id
+}
+
+/**
+ * Subscribe to setup-status (active but not yet live) games for a club.
+ * Two equality filters — no composite index required.
+ */
+export function subscribeToClubSetupGames(clubId, cb) {
+  const q = query(
+    collection(db, 'games'),
+    where('clubId', '==', clubId),
+    where('status', '==', 'setup')
+  )
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
 }
 
 /**

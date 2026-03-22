@@ -7,11 +7,13 @@ import {
   searchClubs, getClub, followClub, unfollowClub,
   subscribeLiveGames, getClubRecord, unfollowPlayer,
   getClaimedPlayerProfile, getRecentPlaysForPlayers,
+  subscribeToClubSetupGames,
 } from '../firebase/firestore'
 import { subscribeToUserTournaments, deleteTournament } from '../firebase/tournaments'
 import { subscribeToUserLeagues, deleteLeague } from '../firebase/leagues'
 import { logout } from '../firebase/auth'
 import { formatDate } from '../lib/formatters'
+import { ScorekeeperLinkChip } from '../components/ui'
 
 const SPORTS = ['basketball', 'baseball', 'softball', 'soccer', 'volleyball', 'flag-football']
 const SPORT_ICON = {
@@ -44,6 +46,8 @@ export default function DashboardPage() {
   const [liveGames, setLiveGames] = useState([])
   const [clubRecords, setClubRecords] = useState({})
   const [claimedProfile, setClaimedProfile] = useState(null)
+  const [setupGames,  setSetupGames]  = useState([])
+  const [copiedGameId, setCopiedGameId] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
   const [showStartGame, setShowStartGame] = useState(false)
   const [newName, setNewName] = useState('')
@@ -69,6 +73,28 @@ export default function DashboardPage() {
   useEffect(() => {
     return subscribeToFollowedGames(followedClubs, setFollowedGames)
   }, [followedClubs])
+
+  // Subscribe to setup-status games for each owned club (scorekeeper ready but not live)
+  useEffect(() => {
+    if (!clubs.length) { setSetupGames([]); return }
+    const perClub = {}
+    const unsubs = clubs.map((club) =>
+      subscribeToClubSetupGames(club.id, (games) => {
+        perClub[club.id] = games
+        const all = Object.values(perClub).flat()
+        all.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+        setSetupGames([...all])
+      })
+    )
+    return () => unsubs.forEach((u) => u())
+  }, [clubs.map((c) => c.id).join(',')]) // eslint-disable-line
+
+  function copyScoreKeeperLink(gameId) {
+    const url = `${window.location.origin}/scorekeeper/${gameId}`
+    navigator.clipboard.writeText(url).catch(() => {})
+    setCopiedGameId(gameId)
+    setTimeout(() => setCopiedGameId(null), 2000)
+  }
 
   useEffect(() => {
     if (!followedClubs.length) { setFollowedClubData([]); return }
@@ -613,6 +639,41 @@ function HomeTab({ clubs, clubRecords, liveGames, followedClubs, followedGames, 
           </Link>
         </div>
       </div>
+
+      {/* Active games (setup-status — scorekeeper ready, not yet live) */}
+      {setupGames.length > 0 && (
+        <div>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-base">🎮</span>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Active Games — Ready to Score</p>
+          </div>
+          <div className="flex flex-col gap-3">
+            {setupGames.map((game) => (
+              <div key={game.id} className="rounded-2xl bg-[#1a1f2e] px-4 py-3 ring-1 ring-white/5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white">{game.homeTeam} vs {game.awayTeam}</p>
+                    <p className="text-[10px] capitalize text-gray-500">{game.sport}</p>
+                  </div>
+                  <Link
+                    to={`/scorekeeper/${game.id}`}
+                    className="shrink-0 rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-600 transition"
+                  >
+                    Open Scorer
+                  </Link>
+                </div>
+                <ScorekeeperLinkChip
+                  gameId={game.id}
+                  joinCode={game.joinCode}
+                  copied={copiedGameId === game.id}
+                  onCopy={() => copyScoreKeeperLink(game.id)}
+                  className="mt-2"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Live now */}
       {liveGames.length > 0 && (

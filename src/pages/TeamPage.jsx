@@ -12,7 +12,7 @@ import {
   computeBaseballStats, mergeBaseballStats,
   battingAvg, isBaseballSport,
 } from '../lib/statsHelpers'
-import { PageSpinner, LiveBadge, AppBadge, LiveDot } from '../components/ui'
+import { PageSpinner, LiveBadge, AppBadge, LiveDot, ScorekeeperLinkChip } from '../components/ui'
 import SponsorBanner from '../components/SponsorBanner'
 import { useLiveGamePlayers } from '../hooks/useLiveGamePlayers'
 
@@ -131,6 +131,7 @@ export default function TeamPage() {
   const [followLoading, setFollowLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('games')
   const [copied, setCopied]     = useState(false)
+  const [copiedGameId, setCopiedGameId] = useState(null)
   const [showSignInPrompt, setShowSignInPrompt] = useState(false)
 
   // Stats tab state
@@ -210,6 +211,14 @@ export default function TeamPage() {
 
   const sportEmoji = SPORT_EMOJI[club.sport] || '🏅'
   const isBaseball  = isBaseballSport(club.sport)
+  const isOwner = user?.uid === club.ownerId || club.adminIds?.includes(user?.uid)
+
+  function copyScoreKeeperLink(gameId) {
+    const url = `${window.location.origin}/scorekeeper/${gameId}`
+    navigator.clipboard.writeText(url).catch(() => {})
+    setCopiedGameId(gameId)
+    setTimeout(() => setCopiedGameId(null), 2000)
+  }
 
   const tabs = [
     { id: 'games',  label: `Games (${games.length})` },
@@ -365,24 +374,36 @@ export default function TeamPage() {
                     const oppScore = isHome ? g.awayScore : g.homeScore
                     const opponent = isHome ? g.awayTeam : g.homeTeam
                     return (
-                      <Link key={g.id} to={`/game/${g.id}`}
-                        className="flex items-center justify-between rounded-2xl bg-[#1a1f2e] border-l-2 border-green-500 px-4 py-3.5 transition hover:bg-[#242938]">
-                        <div className="min-w-0">
-                          <div className="mb-1 flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-900/60 px-2 py-0.5 text-[10px] font-bold text-green-300">
-                              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
-                              LIVE
-                            </span>
+                      <div key={g.id} className="rounded-2xl bg-[#1a1f2e] border-l-2 border-green-500">
+                        <Link to={`/game/${g.id}`}
+                          className="flex items-center justify-between px-4 py-3.5 transition hover:bg-[#242938] rounded-2xl">
+                          <div className="min-w-0">
+                            <div className="mb-1 flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-green-900/60 px-2 py-0.5 text-[10px] font-bold text-green-300">
+                                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
+                                LIVE
+                              </span>
+                            </div>
+                            <p className="truncate text-sm font-semibold text-white">
+                              vs. <span className="text-gray-300">{opponent}</span>
+                            </p>
                           </div>
-                          <p className="truncate text-sm font-semibold text-white">
-                            vs. <span className="text-gray-300">{opponent}</span>
-                          </p>
-                        </div>
-                        <div className="ml-4 flex shrink-0 items-center gap-3">
-                          <p className="font-mono text-lg font-bold text-white">{myScore}–{oppScore}</p>
-                          <span className="text-gray-600">›</span>
-                        </div>
-                      </Link>
+                          <div className="ml-4 flex shrink-0 items-center gap-3">
+                            <p className="font-mono text-lg font-bold text-white">{myScore}–{oppScore}</p>
+                            <span className="text-gray-600">›</span>
+                          </div>
+                        </Link>
+                        {isOwner && g.joinCode && (
+                          <div className="px-4 pb-3">
+                            <ScorekeeperLinkChip
+                              gameId={g.id}
+                              joinCode={g.joinCode}
+                              copied={copiedGameId === g.id}
+                              onCopy={() => copyScoreKeeperLink(g.id)}
+                            />
+                          </div>
+                        )}
+                      </div>
                     )
                   })}
                 </div>
@@ -403,21 +424,33 @@ export default function TeamPage() {
                     }
                     const opponent = isHome ? g.awayTeam : g.homeTeam
                     return (
-                      <Link key={g.id} to={`/game/${g.id}`}
-                        className="flex items-center justify-between rounded-2xl bg-[#1a1f2e] px-4 py-3.5 transition hover:bg-[#242938]">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-white">
-                            vs. <span className="text-gray-300">{opponent}</span>
-                          </p>
-                          {g.scheduledAt
-                            ? <p className="text-xs text-indigo-400">{new Date(g.scheduledAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(g.scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
-                            : <p className="text-xs text-gray-500">{formatDate(g.createdAt)}</p>
-                          }
-                        </div>
-                        <span className="ml-4 shrink-0 rounded-full bg-gray-800 px-3 py-1 text-xs font-semibold text-gray-400">
-                          Scheduled
-                        </span>
-                      </Link>
+                      <div key={g.id} className="rounded-2xl bg-[#1a1f2e]">
+                        <Link to={`/game/${g.id}`}
+                          className="flex items-center justify-between px-4 py-3.5 transition hover:bg-[#242938] rounded-2xl">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-white">
+                              vs. <span className="text-gray-300">{opponent}</span>
+                            </p>
+                            {g.scheduledAt
+                              ? <p className="text-xs text-indigo-400">{new Date(g.scheduledAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(g.scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
+                              : <p className="text-xs text-gray-500">{formatDate(g.createdAt)}</p>
+                            }
+                          </div>
+                          <span className="ml-4 shrink-0 rounded-full bg-gray-800 px-3 py-1 text-xs font-semibold text-gray-400">
+                            {g.status === 'setup' ? 'Ready' : 'Scheduled'}
+                          </span>
+                        </Link>
+                        {isOwner && g.joinCode && (
+                          <div className="px-4 pb-3">
+                            <ScorekeeperLinkChip
+                              gameId={g.id}
+                              joinCode={g.joinCode}
+                              copied={copiedGameId === g.id}
+                              onCopy={() => copyScoreKeeperLink(g.id)}
+                            />
+                          </div>
+                        )}
+                      </div>
                     )
                   })}
                 </div>

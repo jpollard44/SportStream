@@ -5,14 +5,14 @@ import {
   addPlayer, updatePlayer, deletePlayer, updateClub,
   subscribeToClubGames, subscribeToClubSchedule,
   createScheduledGame, updateGame, deleteGame, markGameFinal, createInvite,
-  getClubFanCount, getClubContextOpponents, searchClubs,
+  getClubFanCount, getClubContextOpponents, searchClubs, getPlayers,
   getHeadToHead, getRecentResults, getClubRecord,
 } from '../firebase/firestore'
 import { uploadClubLogo, uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate } from '../lib/formatters'
 import { SPORT_POSITIONS } from '../lib/baseballHelpers'
 import { useLiveGamePlayers } from '../hooks/useLiveGamePlayers'
-import { LiveDot } from '../components/ui'
+import { LiveDot, ScorekeeperLinkChip } from '../components/ui'
 
 const GAME_TYPES = ['regular', 'playoff', 'scrimmage']
 
@@ -381,18 +381,13 @@ export default function ClubPage() {
                         <span className="text-xs font-bold text-white">{game.homeScore}–{game.awayScore}</span>
                       </div>
                       {game.joinCode && (
-                        <div className="mt-1.5 flex items-center gap-2">
-                          <span className="font-mono text-xs font-extrabold tracking-widest text-blue-400">
-                            {game.joinCode}
-                          </span>
-                          <button
-                            onClick={() => copyScoreKeeperLink(game.id)}
-                            className="flex items-center gap-1 rounded-full bg-gray-800 px-2 py-0.5 text-[10px] font-semibold text-gray-400 hover:bg-gray-700 hover:text-white transition"
-                            title="Copy scorekeeper link"
-                          >
-                            🎮 {copiedGameId === game.id ? 'Copied!' : 'Scorekeeper link'}
-                          </button>
-                        </div>
+                        <ScorekeeperLinkChip
+                          gameId={game.id}
+                          joinCode={game.joinCode}
+                          copied={copiedGameId === game.id}
+                          onCopy={() => copyScoreKeeperLink(game.id)}
+                          className="mt-2"
+                        />
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
@@ -762,6 +757,7 @@ export default function ClubPage() {
           existing={editingScheduleGame}
           schedule={schedule}
           games={games}
+          players={players}
           onClose={() => { setShowAddSchedule(false); setEditingScheduleGame(null) }}
         />
       )}
@@ -1173,7 +1169,7 @@ function OpponentSelector({ value, clubId, club, games, onChange, existing }) {
 
 // ── Add / Edit Schedule Game Modal ────────────────────────────────────────────
 
-function ScheduleGameModal({ clubId, club, existing, schedule, games, onClose }) {
+function ScheduleGameModal({ clubId, club, existing, schedule, games, players = [], onClose }) {
   const [opponent, setOpponent] = useState({ name: existing?.awayTeam || '', clubId: existing?.awayClubId || null })
   const [venue,     setVenue]   = useState(existing?.venue    || '')
   const [gameType, setGameType] = useState(existing?.gameType || 'regular')
@@ -1182,6 +1178,62 @@ function ScheduleGameModal({ clubId, club, existing, schedule, games, onClose })
   )
   const [saving, setSaving]   = useState(false)
   const [conflict, setConflict] = useState('')
+
+  // Lineup state
+  const [showLineup,   setShowLineup]   = useState(false)
+  const [awayPlayers,  setAwayPlayers]  = useState([])
+  const [awayLoading,  setAwayLoading]  = useState(false)
+  const [homeSelected, setHomeSelected] = useState(() => new Set(
+    existing?.homeLineup?.length ? existing.homeLineup.map((p) => p.id) : players.map((p) => p.id)
+  ))
+  const [awaySelected, setAwaySelected] = useState(() => new Set(
+    (existing?.awayLineup || []).map((p) => p.id)
+  ))
+  const [awayManual,   setAwayManual]   = useState(existing?.awayLineup?.filter((p) => !p.fromClub) || [])
+  const [awayInput,    setAwayInput]    = useState('')
+
+  // Sync home selections when players load
+  useEffect(() => {
+    if (!existing && players.length > 0) {
+      setHomeSelected(new Set(players.map((p) => p.id)))
+    }
+  }, [players.length]) // eslint-disable-line
+
+  // Fetch away roster when a linked opponent is chosen
+  useEffect(() => {
+    if (!opponent.clubId) { setAwayPlayers([]); return }
+    setAwayLoading(true)
+    getPlayers(opponent.clubId)
+      .then((ps) => {
+        setAwayPlayers(ps)
+        if (!existing?.awayLineup?.length) setAwaySelected(new Set(ps.map((p) => p.id)))
+      })
+      .catch(() => setAwayPlayers([]))
+      .finally(() => setAwayLoading(false))
+  }, [opponent.clubId]) // eslint-disable-line
+
+  function toggleHome(id) {
+    setHomeSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  function toggleAway(id) {
+    setAwaySelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  function addManual() {
+    const name = awayInput.trim()
+    if (!name) return
+    setAwayManual((prev) => [...prev, { id: `m-${Date.now()}`, name, number: '', position: '' }])
+    setAwayInput('')
+  }
+
+  function buildLineups() {
+    const homeLineup = players.filter((p) => homeSelected.has(p.id))
+      .map((p) => ({ id: p.id, name: p.name, number: p.number || '', position: p.position || '' }))
+    const awayLineup = opponent.clubId && awayPlayers.length
+      ? awayPlayers.filter((p) => awaySelected.has(p.id))
+          .map((p) => ({ id: p.id, name: p.name, number: p.number || '', position: p.position || '', fromClub: true }))
+      : awayManual.map((p) => ({ ...p }))
+    return { homeLineup, awayLineup }
+  }
 
   function checkConflict(isoStr) {
     if (!isoStr) { setConflict(''); return }
@@ -1201,6 +1253,7 @@ function ScheduleGameModal({ clubId, club, existing, schedule, games, onClose })
     if (!opponent.name.trim()) return
     setSaving(true)
     try {
+      const { homeLineup, awayLineup } = buildLineups()
       const data = {
         awayTeam:    opponent.name.trim(),
         awayClubId:  opponent.clubId || null,
@@ -1209,6 +1262,8 @@ function ScheduleGameModal({ clubId, club, existing, schedule, games, onClose })
         gameType,
         scheduledAt: dateTime || null,
         sport:       club?.sport || 'basketball',
+        homeLineup,
+        awayLineup,
       }
       if (existing) await updateGame(existing.id, data)
       else          await createScheduledGame(clubId, data)
@@ -1278,6 +1333,102 @@ function ScheduleGameModal({ clubId, club, existing, schedule, games, onClose })
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* ── Lineup section ── */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowLineup((v) => !v)}
+              className="flex w-full items-center justify-between rounded-xl bg-[#242938] px-4 py-2.5 text-sm text-gray-400 hover:text-gray-200 transition"
+            >
+              <span className="font-semibold">🔢 Set Lineups <span className="font-normal text-gray-600">(optional)</span></span>
+              <span className="text-xs">{showLineup ? '▲' : '▾'}</span>
+            </button>
+
+            {showLineup && (
+              <div className="mt-2 space-y-4 rounded-xl bg-[#131720] p-4">
+                {/* Home lineup */}
+                <div>
+                  <p className="mb-2 text-xs font-bold text-gray-400">{club?.name || 'Home'}</p>
+                  {players.length === 0 ? (
+                    <p className="text-xs text-gray-600">No players on roster yet.</p>
+                  ) : (
+                    <div className="max-h-32 space-y-1 overflow-y-auto">
+                      {players.map((p) => (
+                        <label key={p.id} className="flex cursor-pointer items-center gap-2">
+                          <input type="checkbox" checked={homeSelected.has(p.id)} onChange={() => toggleHome(p.id)} className="accent-blue-500" />
+                          <span className="text-xs text-gray-300">
+                            {p.number && <span className="mr-1 font-mono text-gray-500">#{p.number}</span>}
+                            {p.name}
+                            {p.position && <span className="ml-1 text-gray-600">· {p.position}</span>}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Away lineup */}
+                <div>
+                  <p className="mb-2 text-xs font-bold text-gray-400">{opponent.name || 'Away team'}</p>
+                  {opponent.clubId ? (
+                    awayLoading ? (
+                      <p className="text-xs text-gray-600">Loading roster…</p>
+                    ) : awayPlayers.length === 0 ? (
+                      <p className="text-xs text-gray-600">No players found for this team.</p>
+                    ) : (
+                      <div className="max-h-32 space-y-1 overflow-y-auto">
+                        {awayPlayers.map((p) => (
+                          <label key={p.id} className="flex cursor-pointer items-center gap-2">
+                            <input type="checkbox" checked={awaySelected.has(p.id)} onChange={() => toggleAway(p.id)} className="accent-blue-500" />
+                            <span className="text-xs text-gray-300">
+                              {p.number && <span className="mr-1 font-mono text-gray-500">#{p.number}</span>}
+                              {p.name}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )
+                  ) : (
+                    <div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={awayInput}
+                          onChange={(e) => setAwayInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addManual() } }}
+                          placeholder="Player name"
+                          className="input flex-1 py-2 text-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={addManual}
+                          disabled={!awayInput.trim()}
+                          className="rounded-xl bg-blue-700 px-3 text-xs font-semibold text-white hover:bg-blue-600 disabled:opacity-40 transition"
+                        >
+                          + Add
+                        </button>
+                      </div>
+                      {awayManual.length > 0 && (
+                        <div className="mt-2 max-h-28 space-y-1 overflow-y-auto">
+                          {awayManual.map((p) => (
+                            <div key={p.id} className="flex items-center justify-between gap-2">
+                              <span className="text-xs text-gray-300">{p.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => setAwayManual((prev) => prev.filter((x) => x.id !== p.id))}
+                                className="text-[10px] text-gray-600 hover:text-red-400 transition"
+                              >✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-1">

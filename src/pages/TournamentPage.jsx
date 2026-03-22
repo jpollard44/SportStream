@@ -26,7 +26,7 @@ import { createGame, saveLineup, updateGame } from '../firebase/firestore'
 import { generateUniqueJoinCode } from '../lib/generateJoinCode'
 import BracketView from '../components/tournament/BracketView'
 import SponsorBanner from '../components/SponsorBanner'
-import { LiveDot } from '../components/ui'
+import { LiveDot, ScorekeeperLinkChip } from '../components/ui'
 import { useLiveClubs } from '../hooks/useLiveClubs'
 
 // ── Default game params by sport ──────────────────────────────────────────────
@@ -505,6 +505,8 @@ export default function TournamentPage() {
             onSchedule={(match, bType) => { setScheduleMatch({ ...match, _bracketType: bType }) }}
             onDeclare={(match, bType) => setDeclareMatch({ ...match, _bracketType: bType })}
             onEdit={(match) => setEditMatch(match)}
+            copiedGameId={copiedGameId}
+            onCopyLink={copyScoreKeeperLink}
           />
         </div>
       )}
@@ -562,16 +564,13 @@ export default function TournamentPage() {
                     <p className="font-mono font-bold text-white">{game.homeScore} – {game.awayScore}</p>
                   )}
                   {game.joinCode && isHost && (
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="font-mono text-xs font-extrabold tracking-widest text-blue-400">{game.joinCode}</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); copyScoreKeeperLink(game.id) }}
-                        className="flex items-center gap-1 rounded-full bg-gray-800 px-2 py-0.5 text-[10px] font-semibold text-gray-400 hover:bg-gray-700 hover:text-white transition"
-                        title="Copy scorekeeper link"
-                      >
-                        🎮 {copiedGameId === game.id ? 'Copied!' : 'Scorekeeper link'}
-                      </button>
-                    </div>
+                    <ScorekeeperLinkChip
+                      gameId={game.id}
+                      joinCode={game.joinCode}
+                      copied={copiedGameId === game.id}
+                      onCopy={() => copyScoreKeeperLink(game.id)}
+                      className="mt-2"
+                    />
                   )}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5">

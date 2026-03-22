@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { computeStandings } from '../../firebase/tournaments'
+import { ScorekeeperLinkChip } from '../ui'
 
 function fmtDate(iso) {
   if (!iso) return ''
@@ -17,7 +18,7 @@ function fmtDateCompact(iso) {
     ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
-export default function BracketView({ tournament, teams, games, isHost, onSchedule, onDeclare, onEdit }) {
+export default function BracketView({ tournament, teams, games, isHost, onSchedule, onDeclare, onEdit, copiedGameId, onCopyLink }) {
   const isSE = tournament.format === 'single_elimination'
   const isRR = tournament.format === 'round_robin'
   const isDE = tournament.format === 'double_elimination'
@@ -54,6 +55,8 @@ export default function BracketView({ tournament, teams, games, isHost, onSchedu
       onSchedule={onSchedule}
       onDeclare={(match) => onDeclare(match, 'winners')}
       onEdit={onEdit}
+      copiedGameId={copiedGameId}
+      onCopyLink={onCopyLink}
     />
   )
   if (isDE) return (
@@ -173,7 +176,7 @@ function SingleEliminationBracket({ matchups, games, isHost, onSchedule, onDecla
             const { lx, cy } = pos[m.matchId]
             return (
               <div key={m.matchId} style={{ position: 'absolute', left: lx, top: cy - CARD_H / 2, width: CARD_W, zIndex: 1 }}>
-                <BracketCard match={m} games={games} isHost={isHost} onSchedule={onSchedule} onDeclare={onDeclare} onEdit={onEdit} />
+                <BracketCard match={m} games={games} isHost={isHost} onSchedule={onSchedule} onDeclare={onDeclare} onEdit={onEdit} copiedGameId={copiedGameId} onCopyLink={onCopyLink} />
               </div>
             )
           })}
@@ -269,6 +272,8 @@ function DoubleEliminationBracket({ winnersBracket, losersBracket, games, isHost
               onSchedule={onSchedule}
               onDeclare={(match) => onDeclare(match, 'grandFinal')}
               onEdit={onEdit}
+              copiedGameId={copiedGameId}
+              onCopyLink={onCopyLink}
             />
           ) : (
             <p className="text-sm text-gray-500">Grand final will appear here after both brackets complete.</p>
@@ -352,7 +357,7 @@ function SEBracketCanvas({ matchups, games, isHost, onSchedule, onDeclare, onEdi
             if (!p) return null
             return (
               <div key={m.matchId} style={{ position: 'absolute', left: p.lx, top: p.cy - CARD_H / 2, width: CARD_W, zIndex: 1 }}>
-                <BracketCard match={m} games={games} isHost={isHost} onSchedule={onSchedule} onDeclare={onDeclare} onEdit={onEdit} />
+                <BracketCard match={m} games={games} isHost={isHost} onSchedule={onSchedule} onDeclare={onDeclare} onEdit={onEdit} copiedGameId={copiedGameId} onCopyLink={onCopyLink} />
               </div>
             )
           })}
@@ -385,6 +390,8 @@ function LosersScheduleList({ matchups, games, isHost, onSchedule, onDeclare, on
                   onSchedule={onSchedule}
                   onDeclare={onDeclare}
                   onEdit={onEdit}
+                  copiedGameId={copiedGameId}
+                  onCopyLink={onCopyLink}
                 />
               ))}
             </div>
@@ -397,7 +404,7 @@ function LosersScheduleList({ matchups, games, isHost, onSchedule, onDeclare, on
 
 // ── Bracket card (winners bracket) ────────────────────────────────────────────
 
-function BracketCard({ match, games, isHost, onSchedule, onDeclare, onEdit }) {
+function BracketCard({ match, games, isHost, onSchedule, onDeclare, onEdit, copiedGameId, onCopyLink }) {
   const [expanded, setExpanded] = useState(false)
 
   const homeWon     = match.winnerId === match.homeTeamId
@@ -461,43 +468,56 @@ function BracketCard({ match, games, isHost, onSchedule, onDeclare, onEdit }) {
       )}
 
       {expanded && isHost && (
-        <div className="mt-1 flex flex-wrap gap-1">
-          {match.gameId && (
-            <Link to={`/game/${match.gameId}`}
-              className="rounded bg-gray-800 px-2 py-0.5 text-[10px] font-semibold text-blue-400 hover:bg-gray-700">
-              View →
-            </Link>
-          )}
-          {canSchedule && (
+        <div className="mt-1 space-y-1">
+          <div className="flex flex-wrap gap-1">
+            {match.gameId && (
+              <Link to={`/game/${match.gameId}`}
+                className="rounded bg-gray-800 px-2 py-0.5 text-[10px] font-semibold text-blue-400 hover:bg-gray-700">
+                View →
+              </Link>
+            )}
+            {canSchedule && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onSchedule(match); setExpanded(false) }}
+                className="rounded bg-blue-700 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-blue-600"
+              >
+                + Game
+              </button>
+            )}
+            {canDeclare && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDeclare(match); setExpanded(false) }}
+                className="rounded bg-gray-700 px-2 py-0.5 text-[10px] font-semibold text-gray-200 hover:bg-gray-600"
+              >
+                Winner
+              </button>
+            )}
+            {onEdit && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onEdit(match); setExpanded(false) }}
+                className="rounded bg-gray-800 px-2 py-0.5 text-[10px] text-gray-500 hover:text-white"
+              >
+                ✎
+              </button>
+            )}
             <button
-              onClick={(e) => { e.stopPropagation(); onSchedule(match); setExpanded(false) }}
-              className="rounded bg-blue-700 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-blue-600"
+              onClick={(e) => { e.stopPropagation(); setExpanded(false) }}
+              className="rounded bg-gray-800 px-2 py-0.5 text-[10px] text-gray-600 hover:text-gray-400"
             >
-              + Game
+              ✕
             </button>
-          )}
-          {canDeclare && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onDeclare(match); setExpanded(false) }}
-              className="rounded bg-gray-700 px-2 py-0.5 text-[10px] font-semibold text-gray-200 hover:bg-gray-600"
-            >
-              Winner
-            </button>
-          )}
-          {onEdit && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(match); setExpanded(false) }}
-              className="rounded bg-gray-800 px-2 py-0.5 text-[10px] text-gray-500 hover:text-white"
-            >
-              ✎
-            </button>
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); setExpanded(false) }}
-            className="rounded bg-gray-800 px-2 py-0.5 text-[10px] text-gray-600 hover:text-gray-400"
-          >
-            ✕
-          </button>
+          </div>
+          {match.gameId && onCopyLink && (() => {
+            const g = (games || []).find(x => x.id === match.gameId)
+            return g?.joinCode ? (
+              <ScorekeeperLinkChip
+                gameId={match.gameId}
+                joinCode={g.joinCode}
+                copied={copiedGameId === match.gameId}
+                onCopy={(e) => { e?.stopPropagation?.(); onCopyLink(match.gameId) }}
+              />
+            ) : null
+          })()}
         </div>
       )}
     </div>
@@ -506,7 +526,7 @@ function BracketCard({ match, games, isHost, onSchedule, onDeclare, onEdit }) {
 
 // ── Round-robin / losers bracket matchup card ──────────────────────────────────
 
-function MatchupCard({ match, games, isHost, onSchedule, onDeclare, onEdit }) {
+function MatchupCard({ match, games, isHost, onSchedule, onDeclare, onEdit, copiedGameId, onCopyLink }) {
   const hasWinner   = !!match.winnerId
   const hasGame     = !!match.gameId
   const canSchedule = !hasGame && match.homeTeamId && match.awayTeamId
@@ -577,13 +597,25 @@ function MatchupCard({ match, games, isHost, onSchedule, onDeclare, onEdit }) {
           </button>
         )}
       </div>
+      {isHost && hasGame && onCopyLink && (() => {
+        const g = (games || []).find(x => x.id === match.gameId)
+        return g?.joinCode ? (
+          <ScorekeeperLinkChip
+            gameId={match.gameId}
+            joinCode={g.joinCode}
+            copied={copiedGameId === match.gameId}
+            onCopy={() => onCopyLink(match.gameId)}
+            className="mt-2"
+          />
+        ) : null
+      })()}
     </div>
   )
 }
 
 // ── Round-robin schedule ───────────────────────────────────────────────────────
 
-function RoundRobinSchedule({ matchups, teams, games, isHost, onSchedule, onDeclare, onEdit }) {
+function RoundRobinSchedule({ matchups, teams, games, isHost, onSchedule, onDeclare, onEdit, copiedGameId, onCopyLink }) {
   const standings = computeStandings(matchups, teams)
   const rounds = [...new Set(matchups.map((m) => m.round))].sort((a, b) => a - b)
 
@@ -635,6 +667,8 @@ function RoundRobinSchedule({ matchups, teams, games, isHost, onSchedule, onDecl
                   onSchedule={onSchedule}
                   onDeclare={onDeclare}
                   onEdit={onEdit}
+                  copiedGameId={copiedGameId}
+                  onCopyLink={onCopyLink}
                 />
               ))}
             </div>

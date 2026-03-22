@@ -15,7 +15,7 @@ import {
 import { createGame, updateGame } from '../firebase/firestore'
 import SponsorBanner from '../components/SponsorBanner'
 import { generateUniqueJoinCode } from '../lib/generateJoinCode'
-import { LiveDot } from '../components/ui'
+import { LiveDot, ScorekeeperLinkChip } from '../components/ui'
 import { useLiveClubs } from '../hooks/useLiveClubs'
 
 const SPORT_EMOJI = {
@@ -46,6 +46,7 @@ export default function LeaguePage() {
   const [showAutoSchedule, setShowAutoSchedule]   = useState(false)
   const [editTeam, setEditTeam]                   = useState(null)
   const [draggedGameId, setDraggedGameId]         = useState(null)
+  const [copiedGameId,  setCopiedGameId]          = useState(null)
   const [photoUploading, setPhotoUploading]       = useState(false)
   const [photoError, setPhotoError]               = useState('')
   const photoInputRef = useRef(null)
@@ -74,6 +75,14 @@ export default function LeaguePage() {
   }, [leagueId])
 
   const isHost   = user && league && user.uid === league.hostId
+
+  function copyScoreKeeperLink(gameId) {
+    const url = `${window.location.origin}/scorekeeper/${gameId}`
+    navigator.clipboard.writeText(url).catch(() => {})
+    setCopiedGameId(gameId)
+    setTimeout(() => setCopiedGameId(null), 2000)
+  }
+
   const accepted = teams.filter((t) => t.status === 'accepted')
   const pending  = teams.filter((t) => t.status === 'pending')
   const standings = computeLeagueStandings(teams, games)
@@ -392,6 +401,15 @@ export default function LeaguePage() {
                       )}
                     </div>
                   </div>
+                  {isHost && g.joinCode && (
+                    <ScorekeeperLinkChip
+                      gameId={g.id}
+                      joinCode={g.joinCode}
+                      copied={copiedGameId === g.id}
+                      onCopy={() => copyScoreKeeperLink(g.id)}
+                      className="mt-2"
+                    />
+                  )}
                 </div>
               )
             })}

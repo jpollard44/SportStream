@@ -252,6 +252,24 @@ export function LiveBadge() {
   )
 }
 
+// ── ScorekeeperLinkChip ────────────────────────────────────────────────────────
+// Prominent code badge + copy button for hosts to share scorekeeper access.
+// Always visible — not hidden behind a hover or submenu.
+export function ScorekeeperLinkChip({ gameId, joinCode, copied, onCopy, className = '' }) {
+  if (!joinCode) return null
+  return (
+    <div className={`flex items-center gap-2 rounded-xl bg-blue-950/60 px-3 py-2 ring-1 ring-blue-800/40 ${className}`}>
+      <span className="font-mono text-sm font-extrabold tracking-widest text-blue-300">🔑 {joinCode}</span>
+      <button
+        onClick={(e) => { e.stopPropagation(); onCopy() }}
+        className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-500 active:scale-95 transition"
+      >
+        📋 {copied ? 'Copied!' : 'Copy link'}
+      </button>
+    </div>
+  )
+}
+
 // ── LiveDot ────────────────────────────────────────────────────────────────────
 // Subtle inline pulsing green dot — use next to team/player names during live games
 export function LiveDot({ title = 'Live game in progress' }) {
