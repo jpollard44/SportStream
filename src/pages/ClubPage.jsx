@@ -12,6 +12,7 @@ import { uploadClubLogo, uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate } from '../lib/formatters'
 import { SPORT_POSITIONS } from '../lib/baseballHelpers'
 import { useLiveGamePlayers } from '../hooks/useLiveGamePlayers'
+import { LiveDot } from '../components/ui'
 
 const GAME_TYPES = ['regular', 'playoff', 'scrimmage']
 
@@ -42,6 +43,14 @@ export default function ClubPage() {
   // Game actions
   const [confirmDeleteGame, setConfirmDeleteGame] = useState(null)
   const [deletingGame, setDeletingGame] = useState(false)
+  const [copiedGameId, setCopiedGameId] = useState(null)
+
+  function copyScoreKeeperLink(gameId) {
+    const url = `${window.location.origin}/scorekeeper/${gameId}`
+    navigator.clipboard.writeText(url).catch(() => {})
+    setCopiedGameId(gameId)
+    setTimeout(() => setCopiedGameId(null), 2000)
+  }
 
   // Invite link
   const [inviteLink, setInviteLink] = useState(null)
@@ -271,7 +280,10 @@ export default function ClubPage() {
             )}
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-extrabold text-white leading-tight">{club?.name}</h1>
+            <h1 className="flex items-center gap-2 text-xl font-extrabold text-white leading-tight">
+              {club?.name}
+              {liveGameId && <LiveDot title="Team is live right now!" />}
+            </h1>
             <p className="text-sm capitalize text-gray-400">{club?.sport}</p>
           </div>
           <Link
@@ -354,10 +366,11 @@ export default function ClubPage() {
                   }`}>
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-white">
+                        {isLive && <LiveDot title="Live now" />}{' '}
                         {game.homeTeam} <span className="text-gray-500">vs</span> {game.awayTeam}
                       </p>
                       <p className="text-sm text-gray-400">{formatDate(game.createdAt)}</p>
-                      <div className="mt-1 flex items-center gap-2">
+                      <div className="mt-1 flex items-center gap-2 flex-wrap">
                         <StatusBadge status={game.status} />
                         {isLive && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-green-900/60 px-2 py-0.5 text-[10px] font-bold text-green-300 ring-1 ring-green-800/40">
@@ -367,6 +380,20 @@ export default function ClubPage() {
                         )}
                         <span className="text-xs font-bold text-white">{game.homeScore}–{game.awayScore}</span>
                       </div>
+                      {game.joinCode && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <span className="font-mono text-xs font-extrabold tracking-widest text-blue-400">
+                            {game.joinCode}
+                          </span>
+                          <button
+                            onClick={() => copyScoreKeeperLink(game.id)}
+                            className="flex items-center gap-1 rounded-full bg-gray-800 px-2 py-0.5 text-[10px] font-semibold text-gray-400 hover:bg-gray-700 hover:text-white transition"
+                            title="Copy scorekeeper link"
+                          >
+                            🎮 {copiedGameId === game.id ? 'Copied!' : 'Scorekeeper link'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
                       {(game.status === 'live' || game.status === 'setup') && (

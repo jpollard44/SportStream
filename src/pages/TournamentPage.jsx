@@ -26,6 +26,8 @@ import { createGame, saveLineup, updateGame } from '../firebase/firestore'
 import { generateUniqueJoinCode } from '../lib/generateJoinCode'
 import BracketView from '../components/tournament/BracketView'
 import SponsorBanner from '../components/SponsorBanner'
+import { LiveDot } from '../components/ui'
+import { useLiveClubs } from '../hooks/useLiveClubs'
 
 // ── Default game params by sport ──────────────────────────────────────────────
 function defaultGameParams(sport) {
@@ -117,6 +119,14 @@ export default function TournamentPage() {
   const acceptedTeams = teams.filter((t) => t.status === 'accepted')
   const pendingTeams  = teams.filter((t) => t.status === 'pending')
   const canGenerate   = isHost && acceptedTeams.length >= 2 && tournament?.status === 'registration'
+  const [copiedGameId, setCopiedGameId] = useState(null)
+
+  function copyScoreKeeperLink(gameId) {
+    const url = `${window.location.origin}/scorekeeper/${gameId}`
+    navigator.clipboard.writeText(url).catch(() => {})
+    setCopiedGameId(gameId)
+    setTimeout(() => setCopiedGameId(null), 2000)
+  }
 
   // ── Generate bracket / schedule ──────────────────────────────────────────
   async function handleGenerate(setupOpts) {
@@ -544,9 +554,24 @@ export default function TournamentPage() {
                     {isFinal && <span className="text-[10px] font-bold uppercase text-gray-500">Final</span>}
                     {isSetup && scheduled && <span className="text-[10px] text-gray-400">{scheduled}</span>}
                   </div>
-                  <p className="truncate font-semibold text-white">{game.homeTeam} <span className="font-normal text-gray-500">vs</span> {game.awayTeam}</p>
+                  <p className="flex items-center gap-1.5 truncate font-semibold text-white">
+                    {isLive && <LiveDot />}
+                    {game.homeTeam} <span className="font-normal text-gray-500">vs</span> {game.awayTeam}
+                  </p>
                   {(isLive || isFinal) && (
                     <p className="font-mono font-bold text-white">{game.homeScore} – {game.awayScore}</p>
+                  )}
+                  {game.joinCode && isHost && (
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="font-mono text-xs font-extrabold tracking-widest text-blue-400">{game.joinCode}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); copyScoreKeeperLink(game.id) }}
+                        className="flex items-center gap-1 rounded-full bg-gray-800 px-2 py-0.5 text-[10px] font-semibold text-gray-400 hover:bg-gray-700 hover:text-white transition"
+                        title="Copy scorekeeper link"
+                      >
+                        🎮 {copiedGameId === game.id ? 'Copied!' : 'Scorekeeper link'}
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
@@ -642,6 +667,7 @@ function TeamCard({ team, isHost, tourId, tournament, onEdit, onRemove }) {
   const [seedEdit, setSeedEdit]       = useState(false)
   const [seed, setSeed]               = useState(team.seed ?? '')
   const [busy, setBusy]               = useState(false)
+  const { liveClubIds }               = useLiveClubs()
   const [expanded, setExpanded]       = useState(false)
   const [creatingPool, setCreatingPool] = useState(false)
 
@@ -683,7 +709,10 @@ function TeamCard({ team, isHost, tourId, tournament, onEdit, onRemove }) {
     <div className="card p-4 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="font-semibold text-white">{team.name}</p>
+          <p className="flex items-center gap-1.5 font-semibold text-white">
+            {team.name}
+            {team.clubId && liveClubIds.has(team.clubId) && <LiveDot title={`${team.name} is live!`} />}
+          </p>
           <p className="text-xs text-gray-400">{team.managerName} · {team.managerEmail}</p>
         </div>
         <div className="flex items-center gap-2">

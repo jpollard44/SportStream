@@ -251,3 +251,14 @@ export function LiveBadge() {
     </span>
   )
 }
+
+// ── LiveDot ────────────────────────────────────────────────────────────────────
+// Subtle inline pulsing green dot — use next to team/player names during live games
+export function LiveDot({ title = 'Live game in progress' }) {
+  return (
+    <span
+      title={title}
+      className="inline-block h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-green-400"
+    />
+  )
+}

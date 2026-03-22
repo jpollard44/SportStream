@@ -24,14 +24,24 @@ export function currentWeekKey() {
 
 // ── Subscriptions ─────────────────────────────────────────────────────────────
 
-/** Discover tab: top highlights by reactionCount, limit 30 */
-export function subscribeToDiscoverHighlights(cb) {
+/** Discover tab: top highlights by reactionCount, with createdAt tiebreaker, configurable limit */
+export function subscribeToDiscoverHighlights(cb, limitCount = 20) {
   const q = query(
     collection(db, 'highlights'),
     orderBy('reactionCount', 'desc'),
-    limit(30)
+    limit(limitCount)
   )
-  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+  return onSnapshot(q, (snap) => {
+    const hs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    // Secondary sort by createdAt descending as tiebreaker (client-side)
+    hs.sort((a, b) => {
+      if (b.reactionCount !== a.reactionCount) return b.reactionCount - a.reactionCount
+      const ta = a.createdAt?.toMillis?.() || 0
+      const tb = b.createdAt?.toMillis?.() || 0
+      return tb - ta
+    })
+    cb(hs)
+  })
 }
 
 /** Following tab: highlights from followed clubs (max 10 clubIds) or players (max 10) */

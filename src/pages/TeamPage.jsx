@@ -12,7 +12,7 @@ import {
   computeBaseballStats, mergeBaseballStats,
   battingAvg, isBaseballSport,
 } from '../lib/statsHelpers'
-import { PageSpinner, LiveBadge, AppBadge } from '../components/ui'
+import { PageSpinner, LiveBadge, AppBadge, LiveDot } from '../components/ui'
 import SponsorBanner from '../components/SponsorBanner'
 import { useLiveGamePlayers } from '../hooks/useLiveGamePlayers'
 
@@ -255,7 +255,10 @@ export default function TeamPage() {
 
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-extrabold text-white">{club.name}</h1>
+              <h1 className="flex items-center gap-2 text-2xl font-extrabold text-white">
+                {club.name}
+                {liveGame && <LiveDot title="Live game in progress" />}
+              </h1>
               {finalGames.length > 0 ? (
                 <div className="mt-2 flex items-center gap-4">
                   <span className="text-2xl font-extrabold text-white">{W}–{L}</span>

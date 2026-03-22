@@ -15,6 +15,8 @@ import {
 import { createGame, updateGame } from '../firebase/firestore'
 import SponsorBanner from '../components/SponsorBanner'
 import { generateUniqueJoinCode } from '../lib/generateJoinCode'
+import { LiveDot } from '../components/ui'
+import { useLiveClubs } from '../hooks/useLiveClubs'
 
 const SPORT_EMOJI = {
   basketball: '🏀', baseball: '⚾', softball: '🥎',
@@ -75,6 +77,7 @@ export default function LeaguePage() {
   const accepted = teams.filter((t) => t.status === 'accepted')
   const pending  = teams.filter((t) => t.status === 'pending')
   const standings = computeLeagueStandings(teams, games)
+  const { liveClubIds } = useLiveClubs()
 
   async function acceptTeam(teamId) {
     await updateLeagueTeam(leagueId, teamId, { status: 'accepted' })
@@ -289,7 +292,10 @@ export default function LeaguePage() {
                         i < standings.length - 1 ? 'border-b border-white/5' : ''
                       }`}>
                       <div className="min-w-0">
-                        <p className="truncate font-semibold text-white">{t.name}</p>
+                        <p className="flex items-center gap-1.5 truncate font-semibold text-white">
+                          {t.name}
+                          {t.clubId && liveClubIds.has(t.clubId) && <LiveDot title={`${t.name} is live!`} />}
+                        </p>
                         {t.managerName && <p className="text-xs text-gray-500">{t.managerName}</p>}
                       </div>
                       <span className="font-mono font-bold text-green-400">{t.W}</span>

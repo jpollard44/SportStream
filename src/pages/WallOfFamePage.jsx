@@ -705,6 +705,7 @@ export default function WallOfFamePage() {
   const [followingHighlights, setFollowingHighlights] = useState([])
   const [discoverLoading, setDiscoverLoading] = useState(true)
   const [followingLoading, setFollowingLoading] = useState(true)
+  const [discoverLimit, setDiscoverLimit] = useState(20)
   const [showSignInPrompt, setShowSignInPrompt] = useState(false)
 
   useEffect(() => {
@@ -713,12 +714,13 @@ export default function WallOfFamePage() {
   }, [user])
 
   useEffect(() => {
+    setDiscoverLoading(true)
     const unsub = subscribeToDiscoverHighlights((hs) => {
       setDiscoverHighlights(hs)
       setDiscoverLoading(false)
-    })
+    }, discoverLimit)
     return unsub
-  }, [])
+  }, [discoverLimit])
 
   useEffect(() => {
     if (!user || !userDoc) { setFollowingLoading(false); return }
@@ -800,19 +802,31 @@ export default function WallOfFamePage() {
             ) : discoverHighlights.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/10 py-16 text-center">
                 <p className="text-3xl mb-3">🎬</p>
-                <p className="text-sm text-gray-400">No highlights yet.</p>
+                <p className="text-sm text-gray-400">No highlights yet this week — check back after games are played!</p>
                 <p className="mt-1 text-xs text-gray-600">Highlights are created automatically from notable plays.</p>
               </div>
             ) : (
-              discoverHighlights.map((h) => (
-                <HighlightCard
-                  key={h.id}
-                  highlight={h}
-                  uid={uid}
-                  displayName={displayName}
-                  onSignInRequired={() => setShowSignInPrompt(true)}
-                />
-              ))
+              <>
+                {discoverHighlights.map((h) => (
+                  <HighlightCard
+                    key={h.id}
+                    highlight={h}
+                    uid={uid}
+                    displayName={displayName}
+                    onSignInRequired={() => setShowSignInPrompt(true)}
+                  />
+                ))}
+                {discoverHighlights.length >= discoverLimit && (
+                  <div className="flex justify-center pt-2 pb-4">
+                    <button
+                      onClick={() => setDiscoverLimit((n) => n + 20)}
+                      className="rounded-xl bg-white/5 px-6 py-2.5 text-sm font-semibold text-gray-300 hover:bg-white/10 transition"
+                    >
+                      Load more
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -835,11 +849,19 @@ export default function WallOfFamePage() {
             ) : followingHighlights.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/10 py-16 text-center">
                 <p className="text-3xl mb-3">📣</p>
-                <p className="text-sm text-gray-400">No highlights from your followed teams yet.</p>
-                <p className="mt-1 text-xs text-gray-600">Follow teams and players to see their big moments here.</p>
-                <Link to="/find" className="mt-4 inline-block rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-500">
-                  Find teams →
-                </Link>
+                {(userDoc?.followedClubs?.length || 0) + (userDoc?.followedPlayers?.length || 0) === 0 ? (
+                  <>
+                    <p className="text-sm text-gray-400">Follow players and teams to see their highlights here.</p>
+                    <Link to="/" className="mt-4 inline-block rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-500">
+                      Find teams →
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-400">No highlights from your followed teams yet.</p>
+                    <p className="mt-1 text-xs text-gray-600">Check back after games are played!</p>
+                  </>
+                )}
               </div>
             ) : (
               followingHighlights.map((h) => (
