@@ -21,6 +21,7 @@ import LeaguesPage from './pages/LeaguesPage'
 import CreateLeaguePage from './pages/CreateLeaguePage'
 import LeaguePage from './pages/LeaguePage'
 import LeagueJoinPage from './pages/LeagueJoinPage'
+import FanProfilePage from './pages/FanProfilePage'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 
 export default function App() {
@@ -76,6 +77,7 @@ export default function App() {
         <Route path="/leagues" element={<LeaguesPage />} />
         <Route path="/league/:leagueId" element={<LeaguePage />} />
         <Route path="/league/:leagueId/join" element={<LeagueJoinPage />} />
+        <Route path="/fan/:uid" element={<FanProfilePage />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

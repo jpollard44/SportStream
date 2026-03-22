@@ -3,6 +3,9 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { usePlan, PLANS } from '../hooks/usePlan'
 import { logout } from '../firebase/auth'
+import { updateNotificationPrefs, updateUserProfile, subscribeToUser } from '../firebase/firestore'
+import { deleteUser, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth'
+import { auth } from '../firebase/config'
 
 // Cloud Function URL — Gen 2 Cloud Run URL from deploy output
 const CREATE_SESSION_URL =
@@ -57,12 +60,74 @@ const TIERS = [
 
 const planRank = { free: 0, team: 1, premium: 2 }
 
+const NOTIF_PREFS = [
+  { key: 'liveAlerts',   label: 'Game goes live',        desc: 'Push when a team you follow starts streaming' },
+  { key: 'finalScores',  label: 'Final scores',          desc: 'Push when a followed game ends' },
+  { key: 'notablePlays', label: 'Notable plays',         desc: 'Push for home runs, touchdowns, and big moments' },
+]
+
 export default function SettingsPage() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const { plan: currentPlan, loading } = usePlan(user?.uid)
   const [upgrading, setUpgrading] = useState(null)
   const [error, setError] = useState(null)
+
+  // Display name edit
+  const [displayName, setDisplayName] = useState(user?.displayName || '')
+  const [editingName, setEditingName] = useState(false)
+  const [savingName, setSavingName] = useState(false)
+
+  // Notification prefs
+  const [notifPrefs, setNotifPrefs] = useState({ liveAlerts: true, finalScores: true, notablePlays: true })
+  const [savingPrefs, setSavingPrefs] = useState(false)
+
+  // Delete account
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
+
+  // Load user prefs
+  useEffect(() => {
+    if (!user) return
+    return subscribeToUser(user.uid, (u) => {
+      if (u?.notificationPrefs) setNotifPrefs((prev) => ({ ...prev, ...u.notificationPrefs }))
+      if (u?.displayName) setDisplayName(u.displayName)
+    })
+  }, [user])
+
+  async function handleSaveName() {
+    if (!displayName.trim() || !user) return
+    setSavingName(true)
+    try {
+      await updateUserProfile(user.uid, { displayName: displayName.trim() })
+      setEditingName(false)
+    } finally {
+      setSavingName(false)
+    }
+  }
+
+  async function handleTogglePref(key) {
+    const next = { ...notifPrefs, [key]: !notifPrefs[key] }
+    setNotifPrefs(next)
+    setSavingPrefs(true)
+    try { await updateNotificationPrefs(user.uid, next) }
+    finally { setSavingPrefs(false) }
+  }
+
+  async function handleDeleteAccount() {
+    setDeleteError(null)
+    setDeletingAccount(true)
+    try {
+      const credential = EmailAuthProvider.credential(user.email, deletePassword)
+      await reauthenticateWithCredential(auth.currentUser, credential)
+      await deleteUser(auth.currentUser)
+    } catch (err) {
+      setDeleteError(err.message || 'Could not delete account — check your password.')
+      setDeletingAccount(false)
+    }
+  }
 
   // Payment success redirect: /settings?upgraded=team
   const upgradedParam = searchParams.get('upgraded')
@@ -137,6 +202,61 @@ export default function SettingsPage() {
               {currentPlan} plan
             </span>
           )}
+
+          {/* Display name */}
+          <div className="mt-4 border-t border-gray-800 pt-4">
+            <p className="mb-1 text-xs text-gray-500">Display name</p>
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="input flex-1 text-sm"
+                  placeholder="Your name"
+                  autoFocus
+                />
+                <button
+                  onClick={handleSaveName}
+                  disabled={savingName}
+                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                >
+                  {savingName ? '…' : 'Save'}
+                </button>
+                <button onClick={() => setEditingName(false)} className="text-sm text-gray-500 hover:text-gray-300">
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-white">{displayName || <span className="text-gray-500">Not set</span>}</span>
+                <button onClick={() => setEditingName(true)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Notification preferences */}
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Notifications {savingPrefs && <span className="ml-2 text-xs font-normal text-gray-600">Saving…</span>}</h2>
+        <div className="card mb-6 space-y-4">
+          {NOTIF_PREFS.map(({ key, label, desc }) => (
+            <div key={key} className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white">{label}</p>
+                <p className="text-xs text-gray-500">{desc}</p>
+              </div>
+              <button
+                onClick={() => handleTogglePref(key)}
+                className={`relative flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none ${
+                  notifPrefs[key] ? 'bg-blue-600' : 'bg-gray-700'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+                  notifPrefs[key] ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+          ))}
         </div>
 
         {/* Plan tiers */}
@@ -226,6 +346,47 @@ export default function SettingsPage() {
           </a>
           . Subscriptions renew monthly. Cancel anytime.
         </p>
+
+        {/* Danger zone */}
+        <div className="mt-10">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-red-700">Danger Zone</h2>
+          {!showDeleteConfirm ? (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full rounded-2xl border border-red-900/60 py-3 text-sm font-semibold text-red-500 hover:bg-red-900/20 transition"
+            >
+              Delete my account
+            </button>
+          ) : (
+            <div className="rounded-2xl border border-red-800 bg-red-950/40 px-5 py-5 space-y-4">
+              <p className="text-sm text-red-300 font-semibold">This is permanent and cannot be undone.</p>
+              <p className="text-xs text-gray-400">Enter your password to confirm deletion of your SportStream account. Your clubs and game history will remain.</p>
+              <input
+                type="password"
+                placeholder="Your password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                className="input text-sm"
+              />
+              {deleteError && <p className="text-xs text-red-400">{deleteError}</p>}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={!deletePassword || deletingAccount}
+                  className="flex-1 rounded-xl bg-red-700 py-2.5 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-40 transition"
+                >
+                  {deletingAccount ? 'Deleting…' : 'Delete account'}
+                </button>
+                <button
+                  onClick={() => { setShowDeleteConfirm(false); setDeletePassword(''); setDeleteError(null) }}
+                  className="flex-1 rounded-xl bg-gray-800 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-700 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

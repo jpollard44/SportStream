@@ -5,6 +5,7 @@ import {
   addPlayer, updatePlayer, deletePlayer, updateClub,
   subscribeToClubGames, subscribeToClubSchedule,
   createScheduledGame, updateGame, deleteGame, markGameFinal, createInvite,
+  getClubFanCount,
 } from '../firebase/firestore'
 import { uploadClubLogo, uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate } from '../lib/formatters'
@@ -149,6 +150,14 @@ export default function ClubPage() {
     const unsub = subscribeToClubSchedule(clubId, setSchedule)
     return unsub
   }, [clubId])
+
+  const [fanCount, setFanCount] = useState(null)
+  const [showAnalytics, setShowAnalytics] = useState(false)
+
+  useEffect(() => {
+    if (!showAnalytics || !clubId) return
+    getClubFanCount(clubId).then(setFanCount).catch(() => {})
+  }, [showAnalytics, clubId])
 
   function resetAddForm() {
     setName(''); setNickname(''); setNumber(''); setPosition(''); setEmail(''); setPhone('')
@@ -507,6 +516,41 @@ export default function ClubPage() {
                   </div>
                 )
               )}
+            </div>
+          )}
+        </section>
+
+        {/* ── Analytics ── */}
+        <section>
+          <button
+            onClick={() => setShowAnalytics((v) => !v)}
+            className="flex w-full items-center justify-between py-2 text-left"
+          >
+            <h2 className="section-label">Analytics</h2>
+            <span className="text-xs text-gray-600">{showAnalytics ? '▲ Hide' : '▼ Show'}</span>
+          </button>
+          {showAnalytics && (
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-gray-900 px-4 py-4 text-center">
+                <p className="text-2xl font-extrabold text-white tabular-nums">
+                  {fanCount === null ? '…' : fanCount}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">Total fans</p>
+              </div>
+              <div className="rounded-2xl bg-gray-900 px-4 py-4 text-center">
+                <p className="text-2xl font-extrabold text-white tabular-nums">
+                  {games.reduce((sum, g) => sum + (g.views || 0), 0)}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">Total game views</p>
+              </div>
+              <div className="rounded-2xl bg-gray-900 px-4 py-4 text-center">
+                <p className="text-2xl font-extrabold text-white tabular-nums">{games.length}</p>
+                <p className="mt-1 text-xs text-gray-500">Games played</p>
+              </div>
+              <div className="rounded-2xl bg-gray-900 px-4 py-4 text-center">
+                <p className="text-2xl font-extrabold text-white tabular-nums">{players.length}</p>
+                <p className="mt-1 text-xs text-gray-500">Roster size</p>
+              </div>
             </div>
           )}
         </section>

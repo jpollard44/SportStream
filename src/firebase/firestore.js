@@ -550,6 +550,66 @@ export async function claimInvite(token, uid) {
   return invite
 }
 
+// ─── Views counter ────────────────────────────────────────────────────────────
+
+export async function incrementGameViews(gameId) {
+  await updateDoc(doc(db, 'games', gameId), { views: increment(1) })
+}
+
+// ─── Notification preferences ────────────────────────────────────────────────
+
+export async function updateNotificationPrefs(uid, prefs) {
+  await updateDoc(doc(db, 'users', uid), { notificationPrefs: prefs })
+}
+
+// ─── User profile update ──────────────────────────────────────────────────────
+
+export async function updateUserProfile(uid, data) {
+  await updateDoc(doc(db, 'users', uid), data)
+}
+
+// ─── Fan counts ───────────────────────────────────────────────────────────────
+
+// Count users who follow a given club (reads up to 500 user docs)
+export async function getClubFanCount(clubId) {
+  const snap = await getDocs(
+    query(collection(db, 'users'), where('followedClubs', 'array-contains', clubId), limit(500))
+  )
+  return snap.size
+}
+
+// ─── Fan activity feed ────────────────────────────────────────────────────────
+
+const NOTABLE_TYPES = new Set([
+  'home_run', 'triple', 'double', 'strikeout',
+  'score_3', '3pt', 'goal', 'touchdown', 'ace', 'kill',
+  'penalty_goal', 'field_goal',
+])
+
+// Fetch recent notable plays from a set of playerIds for the activity feed.
+// Returns up to 20 plays sorted newest-first.
+export async function getRecentPlaysForPlayers(playerIds) {
+  if (!playerIds || !playerIds.length) return []
+  const limited = [...new Set(playerIds)].slice(0, 10)
+  const allPlays = []
+  await Promise.all(
+    limited.map(async (playerId) => {
+      const q = query(collectionGroup(db, 'plays'), where('playerId', '==', playerId), limit(10))
+      const snap = await getDocs(q)
+      snap.docs
+        .filter((d) => !d.data().undone && NOTABLE_TYPES.has(d.data().type))
+        .forEach((d) =>
+          allPlays.push({ id: d.id, gameId: d.ref.parent.parent.id, ...d.data() })
+        )
+    })
+  )
+  return allPlays
+    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+    .slice(0, 20)
+}
+
+// ─── Scheduled games ──────────────────────────────────────────────────────────
+
 // Returns all non-undone plays for a player across all games (collectionGroup query)
 export async function getPlayerHistoricalPlays(playerId) {
   const q = query(

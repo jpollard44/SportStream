@@ -6,7 +6,7 @@ import {
   subscribeToUser, subscribeToFollowedGames,
   searchClubs, getClub, followClub, unfollowClub,
   subscribeLiveGames, getClubRecord, unfollowPlayer,
-  getClaimedPlayerProfile,
+  getClaimedPlayerProfile, getRecentPlaysForPlayers,
 } from '../firebase/firestore'
 import { subscribeToUserTournaments, deleteTournament } from '../firebase/tournaments'
 import { subscribeToUserLeagues, deleteLeague } from '../firebase/leagues'
@@ -736,6 +736,14 @@ function FollowingTab({ followedClubs, followedPlayers, followedClubData, follow
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
+  const [playerActivity, setPlayerActivity] = useState([])
+
+  useEffect(() => {
+    if (!followedPlayers.length) { setPlayerActivity([]); return }
+    const ids = followedPlayers.map((fp) => fp.playerId)
+    getRecentPlaysForPlayers(ids).then(setPlayerActivity).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followedPlayers.map((fp) => fp.playerId).join(',')])
 
   useEffect(() => {
     if (searchQuery.length < 2) { setSearchResults([]); setSearching(false); return }
@@ -882,6 +890,31 @@ function FollowingTab({ followedClubs, followedPlayers, followedClubData, follow
                   Remove
                 </button>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Player activity feed */}
+      {playerActivity.length > 0 && (
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Player Highlights</p>
+          <div className="flex flex-col gap-2">
+            {playerActivity.map((play, i) => (
+              <Link
+                key={play.id || i}
+                to={`/game/${play.gameId}`}
+                className="flex items-center gap-3 rounded-2xl bg-gray-900 px-4 py-3 transition hover:bg-gray-800"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-900 text-sm font-bold text-blue-200">
+                  {play.playerNumber || '?'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-white">{play.playerName}</p>
+                  <p className="truncate text-xs text-gray-500">{play.type?.replace(/_/g, ' ')}</p>
+                </div>
+                <span className="shrink-0 text-xs text-gray-600">→</span>
+              </Link>
             ))}
           </div>
         </div>

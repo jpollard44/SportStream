@@ -7,7 +7,10 @@ import {
   describeBaseballPlay,
 } from '../lib/baseballHelpers'
 import { describePlay } from '../lib/playEventHelpers'
-import { getPlayerHistoricalPlays, subscribeToUser } from '../firebase/firestore'
+import {
+  getPlayerHistoricalPlays, subscribeToUser,
+  incrementGameViews, followClub, unfollowClub,
+} from '../firebase/firestore'
 import { NOTABLE_PLAY_TYPES, getNotablePlayLabel } from '../lib/premium'
 import { useAuth } from '../context/AuthContext'
 import StreamViewer from '../components/public/StreamViewer'
@@ -142,6 +145,51 @@ function shortName(name) {
   return name.split(' ')[0]
 }
 
+// ── Fan Strip ─────────────────────────────────────────────────────────────────
+
+function FanStrip({ game, user, followedClubs, onFollow }) {
+  const hasHome = !!game.clubId
+  const hasAway = !!game.awayClubId
+  if (!hasHome && !hasAway) return null
+
+  function FanButton({ clubId, name }) {
+    const isFan = followedClubs.includes(clubId)
+    return (
+      <button
+        onClick={() => onFollow(clubId)}
+        className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition ${
+          isFan
+            ? 'bg-blue-700 text-white'
+            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+        }`}
+        title={isFan ? `Unfollow ${name}` : `Become a fan of ${name}`}
+      >
+        {isFan ? '★ Fan' : '☆ Be a Fan'}
+        <span className="hidden sm:inline ml-1 text-gray-400 font-normal">of {name}</span>
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-gray-800/50 bg-gray-900/40 px-4 py-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        {hasHome && <FanButton clubId={game.clubId} name={game.homeTeam} />}
+        {hasAway && <FanButton clubId={game.awayClubId} name={game.awayTeam} />}
+        {!user && (
+          <Link to="/login" className="text-xs text-gray-500 hover:text-gray-300 ml-1">
+            Sign in to follow
+          </Link>
+        )}
+      </div>
+      {!!game.views && (
+        <span className="flex-shrink-0 text-xs text-gray-500">
+          👁 {game.views} {game.views === 1 ? 'view' : 'views'}
+        </span>
+      )}
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PublicGamePage() {
@@ -151,18 +199,46 @@ export default function PublicGamePage() {
   const [tab, setTab] = useState('score')
   const [selectedTeam, setSelectedTeam] = useState(null)
   const [followedPlayers, setFollowedPlayers] = useState([])
+  const [followedClubs, setFollowedClubs] = useState([])
   const [followAlert, setFollowAlert] = useState(null) // { name, label }
   const seenPlayIds = useRef(new Set())
+  const viewCounted = useRef(false)
 
   function goToTeamStats(team) {
     setSelectedTeam(team)
     setTab('stats')
   }
 
-  // Subscribe to user's followed players
+  // Increment view counter once per mount
+  useEffect(() => {
+    if (!gameId || viewCounted.current) return
+    viewCounted.current = true
+    incrementGameViews(gameId).catch(() => {})
+  }, [gameId])
+
+  // Update OG / page title when game loads
+  useEffect(() => {
+    if (!game) return
+    const title = `${game.homeTeam} vs ${game.awayTeam} — ${game.status === 'live' ? 'LIVE on' : 'Final |'} SportStream`
+    document.title = title
+    const setMeta = (prop, val) => {
+      let el = document.querySelector(`meta[property="${prop}"]`) ||
+               document.querySelector(`meta[name="${prop}"]`)
+      if (!el) { el = document.createElement('meta'); el.setAttribute(prop.startsWith('og:') || prop.startsWith('twitter:') ? 'property' : 'name', prop); document.head.appendChild(el) }
+      el.setAttribute('content', val)
+    }
+    setMeta('og:title', title)
+    setMeta('og:description', `${game.sport} game — ${game.homeScore}–${game.awayScore}. Follow live on SportStream.`)
+    setMeta('twitter:title', title)
+  }, [game?.homeTeam, game?.awayTeam, game?.status, game?.homeScore, game?.awayScore])
+
+  // Subscribe to user's followed players and clubs
   useEffect(() => {
     if (!user) return
-    return subscribeToUser(user.uid, (u) => setFollowedPlayers(u?.followedPlayers || []))
+    return subscribeToUser(user.uid, (u) => {
+      setFollowedPlayers(u?.followedPlayers || [])
+      setFollowedClubs(u?.followedClubs || [])
+    })
   }, [user])
 
   // Detect notable plays from followed players
@@ -297,6 +373,18 @@ export default function PublicGamePage() {
         ? <BaseballScoreboardHeader game={game} onTeamClick={goToTeamStats} />
         : <BasketballScoreboardHeader game={game} localSeconds={localSeconds} onTeamClick={goToTeamStats} />
       }
+
+      {/* Fan strip — Become a Fan of each team + views counter */}
+      <FanStrip
+        game={game}
+        user={user}
+        followedClubs={followedClubs}
+        onFollow={async (clubId) => {
+          if (!user) return
+          if (followedClubs.includes(clubId)) await unfollowClub(user.uid, clubId)
+          else await followClub(user.uid, clubId)
+        }}
+      />
 
       {/* Sticky tab bar */}
       <div className="sticky top-0 z-10 flex border-b border-gray-800 bg-gray-950">
