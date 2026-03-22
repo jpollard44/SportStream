@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { usePlan, PLANS } from '../hooks/usePlan'
 import { logout } from '../firebase/auth'
-import { updateNotificationPrefs, updateUserProfile, subscribeToUser } from '../firebase/firestore'
+import { updateNotificationPrefs, updateUserProfile, subscribeToUser, getPlayerProfile, updatePlayerProfile, getPlayerClubMemberships } from '../firebase/firestore'
+import { uploadPlayerPhoto } from '../firebase/storage'
 import { deleteUser, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth'
 import { auth } from '../firebase/config'
 
@@ -59,6 +60,179 @@ const TIERS = [
 ]
 
 const planRank = { free: 0, team: 1, premium: 2 }
+
+const SPORT_EMOJI = {
+  basketball: '🏀', baseball: '⚾', softball: '🥎',
+  soccer: '⚽', volleyball: '🏐', 'flag-football': '🏈',
+}
+
+function PlayerProfileSection({ uid }) {
+  const [profile,     setProfile]     = useState(null)
+  const [memberships, setMemberships] = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [editingName, setEditingName] = useState(false)
+  const [editingBio,  setEditingBio]  = useState(false)
+  const [displayName, setDisplayName] = useState('')
+  const [nickname,    setNickname]    = useState('')
+  const [bio,         setBio]         = useState('')
+  const [saving,      setSaving]      = useState(false)
+  const [uploading,   setUploading]   = useState(false)
+  const photoRef = useRef(null)
+
+  useEffect(() => {
+    if (!uid) return
+    setLoading(true)
+    Promise.all([getPlayerProfile(uid), getPlayerClubMemberships(uid)])
+      .then(([p, mems]) => {
+        setProfile(p)
+        setMemberships(mems)
+        if (p) {
+          setDisplayName(p.displayName || p.name || '')
+          setNickname(p.nickname || '')
+          setBio(p.bio || '')
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [uid])
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await updatePlayerProfile(uid, { displayName: displayName.trim(), nickname: nickname.trim(), bio: bio.trim() })
+      setProfile((p) => ({ ...p, displayName: displayName.trim(), nickname: nickname.trim(), bio: bio.trim() }))
+      setEditingName(false)
+      setEditingBio(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handlePhotoChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const url = await uploadPlayerPhoto('profiles', uid, file)
+      await updatePlayerProfile(uid, { photoURL: url })
+      setProfile((p) => ({ ...p, photoUrl: url }))
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  if (loading) return (
+    <div className="card mb-6 flex items-center justify-center py-8">
+      <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+    </div>
+  )
+
+  if (!profile) return (
+    <div className="card mb-6 py-6 text-center">
+      <p className="text-sm text-gray-400 mb-2">No player profile yet.</p>
+      <p className="text-xs text-gray-600">Claim an invite link from your team admin to set up your profile.</p>
+    </div>
+  )
+
+  const photoUrl = profile.photoUrl || profile.photoURL
+
+  return (
+    <div className="card mb-6 space-y-4">
+      {/* Avatar + name */}
+      <div className="flex items-center gap-4">
+        <button type="button" onClick={() => photoRef.current?.click()} disabled={uploading} className="group relative shrink-0">
+          {photoUrl ? (
+            <img src={photoUrl} alt="" className="h-16 w-16 rounded-2xl object-cover ring-2 ring-gray-700 group-hover:ring-blue-500 transition" />
+          ) : (
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-900/50 text-2xl font-bold text-blue-300 ring-2 ring-gray-700 group-hover:ring-blue-500 transition">
+              {uploading ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" /> : (displayName.charAt(0) || 'P')}
+            </div>
+          )}
+          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[10px] text-white shadow">✏</span>
+        </button>
+        <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+        <div className="min-w-0 flex-1">
+          <Link to={`/player/${uid}`} className="font-semibold text-white hover:text-blue-400 transition">
+            {profile.nickname ? `"${profile.nickname}" ` : ''}{profile.displayName || profile.name || 'Player'}
+          </Link>
+          <p className="mt-0.5 text-xs text-blue-400 hover:text-blue-300">
+            <Link to={`/player/${uid}`}>View profile →</Link>
+          </p>
+        </div>
+      </div>
+
+      {/* Display name + nickname */}
+      <div className="border-t border-gray-800 pt-4 space-y-3">
+        {editingName ? (
+          <div className="space-y-2">
+            <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" className="input text-sm" />
+            <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder='Nickname (optional, e.g. "Ace")' className="input text-sm" />
+            <div className="flex gap-2">
+              <button onClick={handleSave} disabled={saving} className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">
+                {saving ? '…' : 'Save'}
+              </button>
+              <button onClick={() => setEditingName(false)} className="text-sm text-gray-500 hover:text-gray-300">Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500 mb-0.5">Name</p>
+              <p className="text-sm text-white">{profile.displayName || profile.name || <span className="text-gray-500">Not set</span>}</p>
+              {profile.nickname && <p className="text-xs text-gray-400">"{profile.nickname}"</p>}
+            </div>
+            <button onClick={() => setEditingName(true)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+          </div>
+        )}
+
+        {/* Bio */}
+        {editingBio ? (
+          <div className="space-y-2">
+            <textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Short bio…" rows={2} className="input resize-none text-sm" />
+            <div className="flex gap-2">
+              <button onClick={handleSave} disabled={saving} className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">
+                {saving ? '…' : 'Save'}
+              </button>
+              <button onClick={() => setEditingBio(false)} className="text-sm text-gray-500 hover:text-gray-300">Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 mb-0.5">Bio</p>
+              <p className="text-sm text-white break-words">{profile.bio || <span className="text-gray-500">Not set</span>}</p>
+            </div>
+            <button onClick={() => setEditingBio(true)} className="shrink-0 text-xs text-blue-400 hover:text-blue-300">Edit</button>
+          </div>
+        )}
+      </div>
+
+      {/* Teams */}
+      {memberships.length > 0 && (
+        <div className="border-t border-gray-800 pt-4">
+          <p className="mb-2 text-xs text-gray-500">Teams</p>
+          <div className="space-y-1.5">
+            {memberships.map((m) => (
+              <Link key={m.id} to={`/team/${m.clubId}`} className="flex items-center gap-3 rounded-xl bg-gray-800 px-3 py-2.5 hover:bg-gray-700 transition">
+                <span className="text-base">{SPORT_EMOJI[m.sport] || '🏅'}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-white truncate">{m.clubName}</p>
+                  {(m.jerseyNumber || m.position) && (
+                    <p className="text-xs text-gray-400">{m.jerseyNumber ? `#${m.jerseyNumber}` : ''}{m.jerseyNumber && m.position ? ' · ' : ''}{m.position}</p>
+                  )}
+                </div>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${m.active ? 'bg-green-900/50 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
+                  {m.active ? 'Active' : 'Inactive'}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 const NOTIF_PREFS = [
   { key: 'liveAlerts',   label: 'Game goes live',        desc: 'Push when a team you follow starts streaming' },
@@ -217,6 +391,10 @@ export default function SettingsPage() {
             {error}
           </div>
         )}
+
+        {/* Player Profile */}
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Player Profile</h2>
+        <PlayerProfileSection uid={user?.uid} />
 
         {/* Account info */}
         <div className="card mb-6">

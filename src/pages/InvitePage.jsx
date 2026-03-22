@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getInvite, claimInvite } from '../firebase/firestore'
+import { getInvite, claimInvite, updatePlayerProfile, backfillPlayerStats, getPlayer } from '../firebase/firestore'
 
 export default function InvitePage() {
   const { token } = useParams()
@@ -27,8 +27,21 @@ export default function InvitePage() {
     setError('')
     try {
       await claimInvite(token, user.uid)
+
+      // 1. Create / update top-level player profile
+      const playerDoc = await getPlayer(invite.clubId, invite.playerId).catch(() => null)
+      await updatePlayerProfile(user.uid, {
+        displayName: playerDoc?.name || invite.playerName || user.displayName || '',
+        photoURL:    playerDoc?.photoUrl || user.photoURL || null,
+        sports:      [], // populated by backfill below
+        claimed:     true,
+      })
+
+      // 2. Backfill historical stat docs + create club membership (best-effort)
+      backfillPlayerStats(user.uid, invite.clubId, invite.playerId).catch(() => {})
+
       setClaimed(true)
-      setTimeout(() => navigate(`/player/${invite.clubId}/${invite.playerId}`), 1500)
+      setTimeout(() => navigate(`/player/${user.uid}`), 1500)
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.')
     } finally {
@@ -61,7 +74,7 @@ export default function InvitePage() {
         <p className="text-4xl">✅</p>
         <p className="text-lg font-bold text-white">Profile already claimed</p>
         <p className="text-sm text-gray-400">This invite link has already been used.</p>
-        <Link to={`/player/${invite.clubId}/${invite.playerId}`} className="text-blue-400 hover:text-blue-300">
+        <Link to={invite.claimedBy ? `/player/${invite.claimedBy}` : `/player/${invite.clubId}/${invite.playerId}`} className="text-blue-400 hover:text-blue-300">
           View player profile →
         </Link>
       </div>

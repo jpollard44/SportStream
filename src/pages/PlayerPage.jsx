@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { PageSpinner } from '../components/ui'
 import { getPlayer, getClub, getPlayerHistoricalPlays, subscribeToUser, followPlayer, unfollowPlayer, updatePlayer } from '../firebase/firestore'
@@ -222,6 +222,7 @@ function computeBasketballGame(plays) {
 export default function PlayerPage() {
   const { clubId, playerId } = useParams()
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   const [player, setPlayer]   = useState(null)
   const [club, setClub]       = useState(null)
@@ -236,13 +237,18 @@ export default function PlayerPage() {
     setLoading(true)
     Promise.all([getPlayer(clubId, playerId), getClub(clubId), getPlayerHistoricalPlays(playerId)])
       .then(([p, c, rawPlays]) => {
+        // If player has claimed their profile, redirect to the canonical UID-based URL
+        if (p?.uid) {
+          navigate(`/player/${p.uid}`, { replace: true })
+          return
+        }
         setPlayer(p)
         setClub(c)
         setPlays(rawPlays)
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [clubId, playerId])
+  }, [clubId, playerId, navigate])
 
   useEffect(() => {
     if (!user) return

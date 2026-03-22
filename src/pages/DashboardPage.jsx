@@ -372,7 +372,7 @@ function RoleHero({ userRole, clubs, liveGames, followedGames, claimedProfile, o
         {claimedProfile ? (
           <div className="rounded-2xl bg-gradient-to-br from-purple-900/30 to-[#1a1f2e] p-5 ring-1 ring-purple-800/30">
             <p className="mb-3 text-xs font-bold uppercase tracking-wider text-purple-400">My Profile</p>
-            <Link to={`/player/${claimedProfile.clubId}/${claimedProfile.playerId}`} className="flex items-center gap-4">
+            <Link to={`/player/${claimedProfile.uid || user?.uid}`} className="flex items-center gap-4">
               {claimedProfile.photoUrl ? (
                 <img src={claimedProfile.photoUrl} alt="" className="h-14 w-14 shrink-0 rounded-2xl object-cover ring-2 ring-purple-800/40" />
               ) : (
@@ -570,7 +570,7 @@ function HomeTab({ clubs, clubRecords, liveGames, followedClubs, followedGames, 
         <div>
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">My Profile</p>
           <Link
-            to={`/player/${claimedProfile.clubId}/${claimedProfile.playerId}`}
+            to={`/player/${claimedProfile.uid || user?.uid}`}
             className="flex items-center gap-4 rounded-2xl bg-gray-900 px-4 py-3 transition hover:bg-gray-800"
           >
             {claimedProfile.photoUrl ? (
@@ -1080,7 +1080,7 @@ function FollowingTab({ followedClubs, followedPlayers, followedClubData, follow
                     {fp.number || '?'}
                   </div>
                 )}
-                <Link to={`/player/${fp.clubId}/${fp.playerId}`} className="min-w-0 flex-1">
+                <Link to={fp.uid ? `/player/${fp.uid}` : `/player/${fp.clubId}/${fp.playerId}`} className="min-w-0 flex-1">
                   {fp.nickname ? (
                     <>
                       <p className="truncate font-bold text-white">"{fp.nickname}"</p>

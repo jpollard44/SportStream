@@ -707,6 +707,164 @@ export async function getRecentPlaysForPlayers(playerIds) {
 
 // ─── Scheduled games ──────────────────────────────────────────────────────────
 
+// ─── Top-level Player Profiles ────────────────────────────────────────────────
+
+export async function getPlayerProfile(uid) {
+  const snap = await getDoc(doc(db, 'players', uid))
+  return snap.exists() ? { uid: snap.id, ...snap.data() } : null
+}
+
+export function subscribeToPlayerProfile(uid, callback) {
+  return onSnapshot(doc(db, 'players', uid), (snap) => {
+    callback(snap.exists() ? { uid: snap.id, ...snap.data() } : null)
+  })
+}
+
+export async function updatePlayerProfile(uid, data) {
+  const ref = doc(db, 'players', uid)
+  const snap = await getDoc(ref)
+  if (snap.exists()) {
+    await updateDoc(ref, { ...data, updatedAt: serverTimestamp() })
+  } else {
+    await setDoc(ref, { uid, claimed: true, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), ...data })
+  }
+}
+
+export async function getPlayerStats(uid, { sport, year, leagueId, tournamentId } = {}) {
+  const constraints = []
+  if (sport) constraints.push(where('sport', '==', sport))
+  if (leagueId) constraints.push(where('leagueId', '==', leagueId))
+  if (tournamentId) constraints.push(where('tournamentId', '==', tournamentId))
+  if (year) {
+    constraints.push(where('gameDate', '>=', `${year}-01-01`))
+    constraints.push(where('gameDate', '<=', `${year}-12-31`))
+  }
+  const q = constraints.length
+    ? query(collection(db, 'players', uid, 'stats'), ...constraints)
+    : collection(db, 'players', uid, 'stats')
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function getPlayerClubMemberships(uid) {
+  const snap = await getDocs(collection(db, 'players', uid, 'clubMemberships'))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export function subscribeToPlayerHighlights(uid, extraPlayerIds, callback) {
+  // Query highlights by this player's uid. Also queries by any roster playerIds provided.
+  const ids = [uid, ...extraPlayerIds].filter(Boolean)
+  const q = query(
+    collection(db, 'highlights'),
+    where('playerId', 'in', ids.slice(0, 10)),
+    orderBy('createdAt', 'desc'),
+    limit(20)
+  )
+  return onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
+// Stat computation helpers (used by backfill and Cloud Function)
+function computeBaseballStats(plays) {
+  const AT_BAT = new Set(['single', 'double', 'triple', 'homeRun', 'strikeout', 'groundOut', 'flyOut', 'lineOut', 'sacrifice'])
+  const HIT    = new Set(['single', 'double', 'triple', 'homeRun'])
+  let ab = 0, h = 0, doubles = 0, triples = 0, hr = 0, rbi = 0, bb = 0, k = 0, sb = 0, runs = 0
+  for (const play of plays) {
+    if (AT_BAT.has(play.type)) ab++
+    if (HIT.has(play.type)) h++
+    if (play.type === 'double')   doubles++
+    if (play.type === 'triple')   triples++
+    if (play.type === 'homeRun')  hr++
+    if (play.type === 'walk' || play.type === 'hitByPitch') bb++
+    if (play.type === 'strikeout') k++
+    if (play.type === 'stolenBase') sb++
+    if (play.type === 'run') runs++
+    if (play.points) rbi += play.points
+  }
+  return { atBats: ab, hits: h, doubles, triples, homeRuns: hr, runs, rbi, walks: bb, strikeouts: k, stolenBases: sb }
+}
+
+function computeBasketballStats(plays) {
+  let pts = 0, reb = 0, ast = 0, stl = 0, blk = 0, tov = 0
+  let fgA = 0, fgM = 0, threeA = 0, threeM = 0, ftA = 0, ftM = 0
+  for (const play of plays) {
+    if (play.type === 'score_2')       { pts += 2; fgM++; fgA++ }
+    else if (play.type === 'score_3' || play.type === '3pt') { pts += 3; threeM++; threeA++; fgM++; fgA++ }
+    else if (play.type === 'ft_made')  { pts += 1; ftM++; ftA++ }
+    else if (play.type === 'ft_miss')  { ftA++ }
+    else if (play.type === 'rebound')  reb++
+    else if (play.type === 'assist')   ast++
+    else if (play.type === 'steal')    stl++
+    else if (play.type === 'block')    blk++
+    else if (play.type === 'turnover') tov++
+  }
+  return { points: pts, rebounds: reb, assists: ast, steals: stl, blocks: blk, turnovers: tov, fgAttempts: fgA, fgMade: fgM, threeAttempts: threeA, threeMade: threeM, ftAttempts: ftA, ftMade: ftM }
+}
+
+export function computeStatDocFromPlays(plays, sport) {
+  if (sport === 'baseball' || sport === 'softball') return computeBaseballStats(plays)
+  if (sport === 'basketball') return computeBasketballStats(plays)
+  return {}
+}
+
+// Backfill stat docs from historical plays for a newly claimed player.
+// Called from InvitePage after claimInvite().
+export async function backfillPlayerStats(uid, clubId, playerId) {
+  const [clubSnap, playsSnap] = await Promise.all([
+    getDoc(doc(db, 'clubs', clubId)),
+    getDocs(query(collectionGroup(db, 'plays'), where('playerId', '==', playerId), limit(200))),
+  ])
+  if (!clubSnap.exists()) return
+  const club = clubSnap.data()
+  const sport    = club.sport || 'basketball'
+  const clubName = club.name  || ''
+
+  // Ensure club membership doc exists
+  await setDoc(doc(db, 'players', uid, 'clubMemberships', clubId), {
+    clubId, clubName, sport,
+    jerseyNumber: '', position: '',
+    joinedAt: serverTimestamp(), active: true,
+  }, { merge: true })
+
+  const plays = playsSnap.docs
+    .filter((d) => d.data().undone !== true)
+    .map((d) => ({ id: d.id, gameId: d.ref.parent.parent.id, ...d.data() }))
+  if (plays.length === 0) return
+
+  // Group by gameId
+  const byGame = {}
+  for (const play of plays) {
+    if (!byGame[play.gameId]) byGame[play.gameId] = []
+    byGame[play.gameId].push(play)
+  }
+
+  // Write one stat doc per game
+  for (const [gameId, gamePlays] of Object.entries(byGame)) {
+    const gameSnap = await getDoc(doc(db, 'games', gameId)).catch(() => null)
+    if (!gameSnap?.exists()) continue
+    const game = gameSnap.data()
+    const gameDate = (game.endedAt?.toDate?.() || game.createdAt?.toDate?.() || new Date())
+      .toISOString().split('T')[0]
+    const isHome   = game.clubId === clubId
+    const opponent = isHome ? (game.awayTeam || '') : (game.homeTeam || '')
+
+    await setDoc(doc(db, 'players', uid, 'stats', `${gameId}_${clubId}`), {
+      gameId, clubId, clubName,
+      opponentName: opponent,
+      opponentClubId: isHome ? (game.awayClubId || null) : (game.clubId || null),
+      sport,
+      leagueId:       game.leagueId      || null,
+      leagueName:     null,
+      tournamentId:   game.tournamentId  || null,
+      tournamentName: null,
+      season:         gameDate.split('-')[0],
+      gameDate,
+      ...computeStatDocFromPlays(gamePlays, sport),
+    }, { merge: true })
+  }
+}
+
+// ─── Historical plays (legacy — kept for backwards-compat PlayerPage) ─────────
+
 // Returns all non-undone plays for a player across all games (collectionGroup query)
 export async function getPlayerHistoricalPlays(playerId) {
   const q = query(

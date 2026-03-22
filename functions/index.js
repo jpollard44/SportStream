@@ -509,7 +509,51 @@ exports.onNewPlay = onDocumentCreated('games/{gameId}/plays/{playId}', async (ev
   }
 })
 
-// ── onGameComplete — stat summary push when game goes final ───────────────────
+// ── Stat helpers (mirrors src/firebase/firestore.js computeStatDocFromPlays) ──
+
+function computeBaseballStatDoc(plays) {
+  const AT_BAT = new Set(['single','double','triple','homeRun','strikeout','groundOut','flyOut','lineOut','sacrifice'])
+  const HIT    = new Set(['single','double','triple','homeRun'])
+  let ab = 0, h = 0, doubles = 0, triples = 0, hr = 0, rbi = 0, bb = 0, k = 0, sb = 0, runs = 0
+  for (const play of plays) {
+    if (AT_BAT.has(play.type)) ab++
+    if (HIT.has(play.type))    h++
+    if (play.type === 'double')   doubles++
+    if (play.type === 'triple')   triples++
+    if (play.type === 'homeRun')  hr++
+    if (play.type === 'walk' || play.type === 'hitByPitch') bb++
+    if (play.type === 'strikeout') k++
+    if (play.type === 'stolenBase') sb++
+    if (play.type === 'run') runs++
+    if (play.points) rbi += play.points
+  }
+  return { atBats: ab, hits: h, doubles, triples, homeRuns: hr, runs, rbi, walks: bb, strikeouts: k, stolenBases: sb }
+}
+
+function computeBasketballStatDoc(plays) {
+  let pts = 0, reb = 0, ast = 0, stl = 0, blk = 0, tov = 0
+  let fgA = 0, fgM = 0, threeA = 0, threeM = 0, ftA = 0, ftM = 0
+  for (const play of plays) {
+    if (play.type === 'score_2')       { pts += 2; fgM++; fgA++ }
+    else if (play.type === 'score_3' || play.type === '3pt') { pts += 3; threeM++; threeA++; fgM++; fgA++ }
+    else if (play.type === 'ft_made')  { pts += 1; ftM++; ftA++ }
+    else if (play.type === 'ft_miss')  { ftA++ }
+    else if (play.type === 'rebound')  reb++
+    else if (play.type === 'assist')   ast++
+    else if (play.type === 'steal')    stl++
+    else if (play.type === 'block')    blk++
+    else if (play.type === 'turnover') tov++
+  }
+  return { points: pts, rebounds: reb, assists: ast, steals: stl, blocks: blk, turnovers: tov, fgAttempts: fgA, fgMade: fgM, threeAttempts: threeA, threeMade: threeM, ftAttempts: ftA, ftMade: ftM }
+}
+
+function computeStatDocFromPlays(plays, sport) {
+  if (sport === 'baseball' || sport === 'softball') return computeBaseballStatDoc(plays)
+  if (sport === 'basketball') return computeBasketballStatDoc(plays)
+  return {}
+}
+
+// ── onGameComplete — stat summary push + per-player stat docs ─────────────────
 exports.onGameComplete = onDocumentUpdated('games/{gameId}', async (event) => {
   const before = event.data.before.data()
   const after  = event.data.after.data()
@@ -520,6 +564,80 @@ exports.onGameComplete = onDocumentUpdated('games/{gameId}', async (event) => {
   const gameUrl  = `${APP_URL}/game/${gameId}`
   const home     = after.homeTeam || 'Home'
   const away     = after.awayTeam || 'Away'
+  const sport    = after.sport    || 'basketball'
+  const gameDate = (after.endedAt?.toDate?.() || new Date()).toISOString().split('T')[0]
+
+  // ── Write per-player stat docs for claimed players ─────────────────────────
+  try {
+    // Fetch all plays for the game
+    const playsSnap = await db.collection('games').doc(gameId).collection('plays').get()
+    const allPlaysData = playsSnap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((p) => !p.undone && p.playerId)
+
+    // Group plays by playerId
+    const playsByPlayer = {}
+    for (const play of allPlaysData) {
+      if (!playsByPlayer[play.playerId]) playsByPlayer[play.playerId] = { plays: [], team: play.team }
+      playsByPlayer[play.playerId].plays.push(play)
+    }
+
+    // For each player, look up their roster doc to get uid
+    const homeClubId = after.clubId   || null
+    const awayClubId = after.awayClubId || null
+
+    const statWritePromises = Object.entries(playsByPlayer).map(async ([playerId, { plays: playerPlays, team }]) => {
+      const clubId    = team === 'home' ? homeClubId : awayClubId
+      if (!clubId) return
+
+      const rosterSnap = await db.doc(`clubs/${clubId}/players/${playerId}`).get().catch(() => null)
+      if (!rosterSnap?.exists) return
+      const rosterData = rosterSnap.data()
+      const uid = rosterData.uid
+      if (!uid) return // player hasn't claimed their profile
+
+      const clubSnap = await db.doc(`clubs/${clubId}`).get().catch(() => null)
+      const clubName  = clubSnap?.exists ? (clubSnap.data().name || '') : ''
+      const isHome    = team === 'home'
+      const opponent  = isHome ? (after.awayTeam || '') : (after.homeTeam || '')
+      const oppClubId = isHome ? (after.awayClubId || null) : (after.clubId || null)
+
+      const statData = {
+        gameId,
+        clubId,
+        clubName,
+        opponentName:   opponent,
+        opponentClubId: oppClubId,
+        sport,
+        leagueId:       after.leagueId     || null,
+        leagueName:     null,
+        tournamentId:   after.tournamentId  || null,
+        tournamentName: null,
+        season:         gameDate.split('-')[0],
+        gameDate,
+        ...computeStatDocFromPlays(playerPlays, sport),
+      }
+
+      // Write stat doc — merge to avoid overwriting manual edits
+      await db.doc(`players/${uid}/stats/${gameId}_${clubId}`).set(statData, { merge: true })
+
+      // Ensure club membership exists
+      await db.doc(`players/${uid}/clubMemberships/${clubId}`).set({
+        clubId, clubName, sport,
+        jerseyNumber: rosterData.number   || '',
+        position:     rosterData.position || '',
+        joinedAt:     admin.firestore.FieldValue.serverTimestamp(),
+        active:       rosterData.active   ?? true,
+      }, { merge: true })
+
+      // Keep legacy seasonStats for club leaderboards
+      await db.doc(`clubs/${clubId}/seasonStats/${playerId}`).set(statData, { merge: true })
+    })
+
+    await Promise.allSettled(statWritePromises)
+  } catch (e) {
+    console.error('onGameComplete stat write error:', e)
+  }
 
   // Collect all playerIds from both lineups
   const homeLineup = after.homeLineup || []
