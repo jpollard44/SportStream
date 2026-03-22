@@ -9,6 +9,14 @@ function fmtDate(iso) {
     ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
+// Compact version for small bracket cards (e.g. "Sat 3/22 · 10:00 AM")
+function fmtDateCompact(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' }) +
+    ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
 export default function BracketView({ tournament, teams, isHost, onSchedule, onDeclare, onEdit }) {
   const isSE = tournament.format === 'single_elimination'
   const isRR = tournament.format === 'round_robin'
@@ -419,10 +427,20 @@ function BracketCard({ match, isHost, onSchedule, onDeclare, onEdit }) {
         </div>
       </div>
 
-      {!expanded && (match.scheduledAt || match.field) && (
+      {!expanded && (
         <div className="mt-0.5 space-y-px px-0.5">
-          {match.scheduledAt && <p className="text-[9px] leading-none text-gray-600">{fmtDate(match.scheduledAt)}</p>}
-          {match.field && <p className="text-[9px] leading-none text-gray-600">📍 {match.field}</p>}
+          {match.field && (
+            <p className="truncate text-[9px] font-semibold leading-tight text-blue-400/70">
+              Field {match.field}
+            </p>
+          )}
+          {match.scheduledAt ? (
+            <p className="truncate text-[9px] leading-tight text-gray-600">
+              {fmtDateCompact(match.scheduledAt)}
+            </p>
+          ) : !match.field && (
+            <p className="text-[9px] leading-tight text-gray-700">TBD</p>
+          )}
         </div>
       )}
 
@@ -498,12 +516,16 @@ function MatchupCard({ match, isHost, onSchedule, onDeclare, onEdit }) {
           {match.awayTeamName || 'TBD'}
         </p>
       </div>
-      {(match.scheduledAt || match.field) && (
-        <div className="mt-1.5 flex flex-wrap gap-2 text-[10px] text-gray-500">
-          {match.scheduledAt && <span>📅 {fmtDate(match.scheduledAt)}</span>}
-          {match.field && <span>📍 {match.field}</span>}
-        </div>
-      )}
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+        {match.field && (
+          <span className="text-[10px] font-semibold text-blue-400/70">Field {match.field}</span>
+        )}
+        {match.scheduledAt ? (
+          <span className="text-[10px] text-gray-500">{fmtDate(match.scheduledAt)}</span>
+        ) : !match.field && (
+          <span className="text-[10px] text-gray-700">TBD</span>
+        )}
+      </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {hasGame && (
           <Link to={`/game/${match.gameId}`}
