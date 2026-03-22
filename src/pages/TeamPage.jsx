@@ -11,6 +11,7 @@ import {
   computeBaseballStats, mergeBaseballStats,
   battingAvg, isBaseballSport,
 } from '../lib/statsHelpers'
+import { PageSpinner, LiveBadge, AppBadge } from '../components/ui'
 
 function computeRecord(games, clubId) {
   let W = 0, L = 0, T = 0
@@ -106,11 +107,11 @@ export default function TeamPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  if (loading) return <Spinner />
+  if (loading) return <PageSpinner />
 
   if (!club) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-950 text-gray-400">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-[#0f1117] text-gray-400">
         <p>Team not found.</p>
         <Link to="/" className="text-blue-400">← Home</Link>
       </div>
@@ -127,10 +128,10 @@ export default function TeamPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-20 text-white">
+    <div className="min-h-screen bg-[#0f1117] pb-20 text-white">
 
       {/* Nav */}
-      <nav className="flex items-center justify-between border-b border-gray-800 px-5 py-4">
+      <nav className="flex items-center justify-between border-b border-white/5 px-5 py-4">
         <Link to="/" className="text-lg font-extrabold tracking-tight">
           Sport<span className="text-blue-500">Stream</span>
         </Link>
@@ -146,7 +147,7 @@ export default function TeamPage() {
       </nav>
 
       {/* Team header */}
-      <div className="border-b border-gray-800 bg-gray-900 px-5 py-6">
+      <div className="border-b border-white/5 bg-[#1a1f2e] px-5 py-6">
         <div className="mx-auto max-w-lg">
           <div className="mb-3 flex items-center gap-2">
             {club.logoUrl ? (
@@ -154,13 +155,11 @@ export default function TeamPage() {
             ) : (
               <span className="text-2xl">{sportEmoji}</span>
             )}
-            <span className="rounded-full bg-gray-800 px-3 py-1 text-xs font-semibold capitalize text-gray-300">
+            <span className="rounded-full bg-[#242938] px-3 py-1 text-xs font-semibold capitalize text-gray-300">
               {club.sport}
             </span>
             {liveGame && (
-              <span className="flex items-center gap-1 rounded-full bg-red-900/60 px-2.5 py-1 text-xs font-bold text-red-300">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" /> LIVE
-              </span>
+              <LiveBadge />
             )}
           </div>
 
@@ -233,7 +232,7 @@ export default function TeamPage() {
       )}
 
       {/* Tabs */}
-      <div className="sticky top-0 z-10 flex border-b border-gray-800 bg-gray-950/95 backdrop-blur">
+      <div className="sticky top-0 z-10 flex border-b border-white/5 bg-[#0f1117]/95 backdrop-blur">
         {tabs.map(({ id, label }) => (
           <button
             key={id}
@@ -269,7 +268,7 @@ export default function TeamPage() {
                     const opponent = isHome ? g.awayTeam : g.homeTeam
                     return (
                       <Link key={g.id} to={`/game/${g.id}`}
-                        className="flex items-center justify-between rounded-2xl bg-gray-900 px-4 py-3.5 transition hover:bg-gray-800">
+                        className="flex items-center justify-between rounded-2xl bg-[#1a1f2e] px-4 py-3.5 transition hover:bg-[#242938]">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-white">
                             vs. <span className="text-gray-300">{opponent}</span>
@@ -302,7 +301,7 @@ export default function TeamPage() {
                     const lost = myScore < oppScore
                     return (
                       <Link key={g.id} to={`/game/${g.id}`}
-                        className="flex items-center justify-between rounded-2xl bg-gray-900 px-4 py-3.5 transition hover:bg-gray-800">
+                        className="flex items-center justify-between rounded-2xl bg-[#1a1f2e] px-4 py-3.5 transition hover:bg-[#242938]">
                         <div className="min-w-0 flex-1">
                           <div className="mb-1 flex items-center gap-2">
                             <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
@@ -351,7 +350,7 @@ export default function TeamPage() {
               {players.map((p) => {
                 const pIsFollowing = userDoc?.followedPlayers?.some((fp) => fp.playerId === p.id) ?? false
                 return (
-                  <div key={p.id} className="flex items-center gap-3 rounded-xl bg-gray-900 px-4 py-3">
+                  <div key={p.id} className="flex items-center gap-3 rounded-2xl bg-[#1a1f2e] px-4 py-3">
                     <Link to={`/player/${clubId}/${p.id}`} className="shrink-0">
                       {p.photoUrl ? (
                         <img src={p.photoUrl} alt={p.name} className="h-10 w-10 rounded-full object-cover ring-1 ring-gray-700 hover:ring-blue-500 transition" />
@@ -407,7 +406,7 @@ export default function TeamPage() {
       {showSignInPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6"
           onClick={() => setShowSignInPrompt(false)}>
-          <div className="w-full max-w-xs rounded-2xl bg-gray-900 p-6 text-center"
+          <div className="w-full max-w-xs rounded-2xl bg-[#1a1f2e] p-6 text-center"
             onClick={(e) => e.stopPropagation()}>
             <p className="mb-1 text-lg font-bold text-white">Sign in to become a fan</p>
             <p className="mb-5 text-sm text-gray-400">
@@ -455,7 +454,7 @@ function SeasonStatsPanel({ club, clubId, games, isBaseball, seasonStats, loadin
           <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Season Batting</p>
           <p className="text-[10px] text-gray-600">{finalCount} games</p>
         </div>
-        <div className="overflow-x-auto rounded-2xl bg-gray-900">
+        <div className="overflow-x-auto rounded-2xl bg-[#1a1f2e]">
           <table className="w-full text-xs">
             <thead>
               <tr className="text-gray-600">
@@ -473,7 +472,7 @@ function SeasonStatsPanel({ club, clubId, games, isBaseball, seasonStats, loadin
             </thead>
             <tbody>
               {sorted.map((s) => (
-                <tr key={s.id || s.name} className="border-t border-gray-800 text-white">
+                <tr key={s.id || s.name} className="border-t border-white/5 text-white">
                   <td className="px-3 py-2 font-mono text-gray-400">{s.number || '—'}</td>
                   <td className="whitespace-nowrap px-2 py-2 font-medium">
                     {s.id ? (
@@ -520,7 +519,7 @@ function SeasonStatsPanel({ club, clubId, games, isBaseball, seasonStats, loadin
           ].map(({ label, key, fmt }) => {
             const leader = rows.sort((a, b) => b[key] - a[key])[0]
             return (
-              <div key={label} className="rounded-2xl bg-gray-900 p-3 text-center">
+              <div key={label} className="rounded-2xl bg-[#1a1f2e] p-3 text-center">
                 <p className="text-[9px] font-bold uppercase tracking-wider text-gray-600">{label} Leader</p>
                 {leader.id ? (
                   <Link
@@ -542,7 +541,7 @@ function SeasonStatsPanel({ club, clubId, games, isBaseball, seasonStats, loadin
       )}
 
       {/* Full table */}
-      <div className="overflow-x-auto rounded-2xl bg-gray-900">
+      <div className="overflow-x-auto rounded-2xl bg-[#1a1f2e]">
         <table className="w-full text-xs">
           <thead>
             <tr className="text-gray-600">
@@ -559,7 +558,7 @@ function SeasonStatsPanel({ club, clubId, games, isBaseball, seasonStats, loadin
           </thead>
           <tbody>
             {sorted.map((s) => (
-              <tr key={s.id || s.name} className="border-t border-gray-800 text-white">
+              <tr key={s.id || s.name} className="border-t border-white/5 text-white">
                 <td className="px-3 py-2 font-mono text-gray-400">{s.number || '—'}</td>
                 <td className="whitespace-nowrap px-2 py-2 font-medium">
                   {s.id ? (
@@ -582,10 +581,3 @@ function SeasonStatsPanel({ club, clubId, games, isBaseball, seasonStats, loadin
   )
 }
 
-function Spinner() {
-  return (
-    <div className="flex h-screen items-center justify-center bg-gray-950">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-    </div>
-  )
-}

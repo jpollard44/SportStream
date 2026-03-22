@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { PageSpinner } from '../components/ui'
 import { getPlayer, getClub, getPlayerHistoricalPlays, subscribeToUser, followPlayer, unfollowPlayer, updatePlayer } from '../firebase/firestore'
 import { uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate, nickDisplay } from '../lib/formatters'
@@ -63,7 +64,7 @@ function EditProfileModal({ player, club, clubId, playerId, onSave, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center"
       onClick={onClose}>
-      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 space-y-4 sm:rounded-2xl"
+      <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 space-y-4 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-bold text-white">Edit My Profile</h3>
 
@@ -274,16 +275,12 @@ export default function PlayerPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-      </div>
-    )
+    return <PageSpinner />
   }
 
   if (!player || !club) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-950 text-gray-400">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-[#0f1117] text-gray-400">
         <p>Player not found.</p>
         <Link to="/" className="text-blue-400">← Home</Link>
       </div>
@@ -298,9 +295,9 @@ export default function PlayerPage() {
   const careerBasketball = !isBaseball ? computeBasketballCareer(plays) : null
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-20 text-white">
+    <div className="min-h-screen bg-[#0f1117] pb-20 text-white">
       {/* Nav */}
-      <nav className="flex items-center justify-between border-b border-gray-800 px-5 py-4">
+      <nav className="flex items-center justify-between border-b border-white/5 px-5 py-4">
         <Link to="/" className="text-lg font-extrabold tracking-tight">
           Sport<span className="text-blue-500">Stream</span>
         </Link>
@@ -316,21 +313,21 @@ export default function PlayerPage() {
       </nav>
 
       {/* Back nav */}
-      <div className="flex items-center gap-3 overflow-x-auto border-b border-gray-800/50 px-4 py-2">
+      <div className="flex items-center gap-3 overflow-x-auto border-b border-white/10 px-4 py-2">
         <Link to={`/team/${clubId}`} className="flex-shrink-0 text-xs text-gray-500 hover:text-gray-300">
           ← {club.name}
         </Link>
       </div>
 
       {/* Player header */}
-      <div className="border-b border-gray-800 bg-gray-900 px-5 py-6">
+      <div className="border-b border-white/5 bg-[#1a1f2e] px-5 py-6">
         <div className="mx-auto max-w-lg">
           <div className="flex items-start gap-4">
             {/* Avatar */}
             {player.photoUrl ? (
-              <img src={player.photoUrl} alt={player.name} className="h-20 w-20 shrink-0 rounded-2xl object-cover ring-2 ring-gray-700" />
+              <img src={player.photoUrl} alt={player.name} className="h-20 w-20 shrink-0 rounded-2xl object-cover ring-2 ring-white/10" />
             ) : (
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-blue-900/50 text-3xl font-extrabold text-blue-300 ring-2 ring-gray-700">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-blue-900/50 text-3xl font-extrabold text-blue-300 ring-2 ring-white/10">
                 {player.number || player.name.charAt(0)}
               </div>
             )}
@@ -346,12 +343,12 @@ export default function PlayerPage() {
               )}
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 {player.number && (
-                  <span className="rounded-full bg-gray-800 px-2.5 py-0.5 text-xs font-bold text-gray-300">
+                  <span className="rounded-full bg-[#242938] px-2.5 py-0.5 text-xs font-bold text-gray-300">
                     #{player.number}
                   </span>
                 )}
                 {player.position && (
-                  <span className="rounded-full bg-gray-800 px-2.5 py-0.5 text-xs text-gray-400">
+                  <span className="rounded-full bg-[#242938] px-2.5 py-0.5 text-xs text-gray-400">
                     {player.position}
                   </span>
                 )}
@@ -396,7 +393,7 @@ export default function PlayerPage() {
           <section>
             <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">Career Stats</p>
             {isBaseball ? (
-              <div className="grid grid-cols-4 gap-2 rounded-2xl bg-gray-900 p-4 sm:grid-cols-7">
+              <div className="grid grid-cols-4 gap-2 rounded-2xl bg-[#1a1f2e] p-4 sm:grid-cols-7">
                 {[
                   { label: 'GP', value: careerBaseball.gp },
                   { label: 'AVG', value: careerBaseball.avg },
@@ -413,7 +410,7 @@ export default function PlayerPage() {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-2 rounded-2xl bg-gray-900 p-4 sm:grid-cols-7">
+              <div className="grid grid-cols-4 gap-2 rounded-2xl bg-[#1a1f2e] p-4 sm:grid-cols-7">
                 {[
                   { label: 'GP', value: careerBasketball.gp },
                   { label: 'PPG', value: careerBasketball.ppg },
@@ -439,7 +436,7 @@ export default function PlayerPage() {
             <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">
               Game Log (last {byGame.length})
             </p>
-            <div className="overflow-x-auto rounded-2xl bg-gray-900">
+            <div className="overflow-x-auto rounded-2xl bg-[#1a1f2e]">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-gray-600">
@@ -468,7 +465,7 @@ export default function PlayerPage() {
                       ? computeBaseballGame(gPlays)
                       : computeBasketballGame(gPlays)
                     return (
-                      <tr key={gameId} className="border-t border-gray-800 text-white">
+                      <tr key={gameId} className="border-t border-white/5 text-white">
                         <td className="px-3 py-2">
                           <Link to={`/game/${gameId}`} className="text-blue-400 hover:text-blue-300">
                             View →
@@ -500,7 +497,7 @@ export default function PlayerPage() {
         )}
 
         {plays.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-gray-800 py-14 text-center">
+          <div className="rounded-2xl border border-dashed border-white/10 py-14 text-center">
             <p className="text-sm text-gray-500">No recorded stats yet for {displayName}.</p>
           </div>
         )}
@@ -522,7 +519,7 @@ export default function PlayerPage() {
       {showSignIn && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6"
           onClick={() => setShowSignIn(false)}>
-          <div className="w-full max-w-xs rounded-2xl bg-gray-900 p-6 text-center"
+          <div className="w-full max-w-xs rounded-2xl bg-[#1a1f2e] p-6 text-center"
             onClick={(e) => e.stopPropagation()}>
             <p className="mb-1 text-lg font-bold text-white">Sign in to follow</p>
             <p className="mb-5 text-sm text-gray-400">

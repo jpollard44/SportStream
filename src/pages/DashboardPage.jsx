@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const [newName, setNewName] = useState('')
   const [newSport, setNewSport] = useState('basketball')
   const [creating, setCreating] = useState(false)
+  const [userRole, setUserRole] = useState([])
 
   useEffect(() => {
     if (!user) return
@@ -55,6 +56,7 @@ export default function DashboardPage() {
     const u3 = subscribeToUser(user.uid, (u) => {
       setFollowedClubs(u?.followedClubs || [])
       setFollowedPlayers(u?.followedPlayers || [])
+      setUserRole(u?.role || [])
     })
     const u4 = subscribeToUserLeagues(user.uid, setLeagues)
     const u5 = subscribeLiveGames(setLiveGames)
@@ -130,7 +132,7 @@ export default function DashboardPage() {
   const sharedProps = {
     clubs, tournaments, leagues, clubRecords,
     followedClubs, followedPlayers, followedClubData, followedGames, liveGames,
-    claimedProfile,
+    claimedProfile, userRole,
     onDeleteClub: handleDeleteClub,
     onDeleteTournament: handleDeleteTournament,
     onDeleteLeague: handleDeleteLeague,
@@ -290,9 +292,163 @@ export default function DashboardPage() {
   )
 }
 
+// ── Role Hero ──────────────────────────────────────────────────────────────────
+
+function RoleHero({ userRole, clubs, liveGames, followedGames, claimedProfile, onCreateClub, onStartGame }) {
+  const roles = userRole || []
+
+  // Fan hero: live/upcoming followed games
+  if (roles.includes('fan') && !roles.includes('host') && !roles.includes('manager')) {
+    const liveFollowed = followedGames.filter((g) => g.status === 'live')
+    const nextGame = followedGames.find((g) => g.status === 'setup') || followedGames[0]
+    return (
+      <div className="px-5">
+        <div className="rounded-2xl bg-gradient-to-br from-blue-900/40 to-[#1a1f2e] p-5 ring-1 ring-blue-800/30">
+          {liveFollowed.length > 0 ? (
+            <>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-red-400" />
+                <p className="text-xs font-bold uppercase tracking-wider text-red-300">Watching Live</p>
+              </div>
+              <Link to={`/game/${liveFollowed[0].id}`} className="block">
+                <p className="text-xl font-extrabold text-white">
+                  {liveFollowed[0].homeTeam} <span className="font-normal text-gray-400">vs</span> {liveFollowed[0].awayTeam}
+                </p>
+                <p className="mt-1 font-mono text-3xl font-extrabold text-blue-300 tabular-nums">
+                  {liveFollowed[0].homeScore}–{liveFollowed[0].awayScore}
+                </p>
+                <p className="mt-2 text-sm text-blue-400 font-semibold">Watch live →</p>
+              </Link>
+            </>
+          ) : nextGame ? (
+            <>
+              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-gray-500">Up Next</p>
+              <Link to={`/game/${nextGame.id}`}>
+                <p className="text-lg font-extrabold text-white">
+                  {nextGame.homeTeam} <span className="font-normal text-gray-400">vs</span> {nextGame.awayTeam}
+                </p>
+              </Link>
+              <p className="mt-1 text-sm text-gray-500 capitalize">{nextGame.sport}</p>
+            </>
+          ) : (
+            <>
+              <p className="mb-2 text-sm font-semibold text-white">No live games right now</p>
+              <p className="text-xs text-gray-500">Follow more teams to see their games here.</p>
+              {liveGames.length > 0 && (
+                <Link to={`/game/${liveGames[0].id}`} className="mt-3 inline-flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300">
+                  {liveGames.length} game{liveGames.length !== 1 ? 's' : ''} live right now →
+                </Link>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Scorekeeper hero: large join input
+  if (roles.includes('scorekeeper') && !roles.includes('host') && !roles.includes('manager')) {
+    return (
+      <div className="px-5">
+        <div className="rounded-2xl bg-gradient-to-br from-green-900/30 to-[#1a1f2e] p-5 ring-1 ring-green-800/30">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-green-400">Ready to Score</p>
+          <p className="mb-4 text-xl font-extrabold text-white">Join a game</p>
+          <Link
+            to="/join"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-3 text-base font-bold text-white shadow-lg shadow-green-600/20 hover:bg-green-500 transition active:scale-95"
+          >
+            🎮 Enter Join Code
+          </Link>
+          <p className="mt-3 text-center text-xs text-gray-600">Ask the game host for the 6-digit code</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Player hero: my profile + next game
+  if (roles.includes('player') && !roles.includes('host') && !roles.includes('manager')) {
+    return (
+      <div className="px-5">
+        {claimedProfile ? (
+          <div className="rounded-2xl bg-gradient-to-br from-purple-900/30 to-[#1a1f2e] p-5 ring-1 ring-purple-800/30">
+            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-purple-400">My Profile</p>
+            <Link to={`/player/${claimedProfile.clubId}/${claimedProfile.playerId}`} className="flex items-center gap-4">
+              {claimedProfile.photoUrl ? (
+                <img src={claimedProfile.photoUrl} alt="" className="h-14 w-14 shrink-0 rounded-2xl object-cover ring-2 ring-purple-800/40" />
+              ) : (
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-purple-900/50 text-2xl font-extrabold text-purple-300">
+                  {claimedProfile.number || claimedProfile.name?.charAt(0) || '?'}
+                </div>
+              )}
+              <div>
+                <p className="font-bold text-white text-lg">
+                  {claimedProfile.nickname ? `"${claimedProfile.nickname}"` : claimedProfile.name}
+                </p>
+                {claimedProfile.position && <p className="text-sm text-gray-400">{claimedProfile.position} · #{claimedProfile.number}</p>}
+                <p className="mt-1 text-xs text-purple-400">View stats →</p>
+              </div>
+            </Link>
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-gradient-to-br from-purple-900/30 to-[#1a1f2e] p-5 ring-1 ring-purple-800/30">
+            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-purple-400">Player</p>
+            <p className="mb-3 font-semibold text-white">Link your player profile</p>
+            <p className="text-sm text-gray-500">Ask your manager to invite you so your stats show up here.</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Host / Manager hero: quick actions
+  const isHostOrManager = roles.includes('host') || roles.includes('manager')
+  if (isHostOrManager || roles.length === 0) {
+    return (
+      <div className="px-5">
+        <div className="rounded-2xl bg-gradient-to-br from-blue-900/20 to-[#1a1f2e] p-5 ring-1 ring-blue-800/20">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-blue-400">
+            {roles.includes('manager') ? 'Coach / Manager' : roles.includes('host') ? 'Host Hub' : 'Quick Actions'}
+          </p>
+          <p className="mb-4 text-xl font-extrabold text-white">
+            {clubs.length > 0 ? `${clubs.length} team${clubs.length !== 1 ? 's' : ''}` : 'Get started'}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={onStartGame}
+              className="flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-green-600/20 hover:bg-green-500 transition active:scale-95"
+            >
+              ▶ Start Game
+            </button>
+            <button
+              onClick={onCreateClub}
+              className="flex items-center gap-2 rounded-xl bg-[#0f1117] px-4 py-2.5 text-sm font-semibold text-white ring-1 ring-white/10 hover:ring-white/20 transition active:scale-95"
+            >
+              + New Team
+            </button>
+            <Link
+              to="/league/new"
+              className="flex items-center gap-2 rounded-xl bg-[#0f1117] px-4 py-2.5 text-sm font-semibold text-white ring-1 ring-white/10 hover:ring-white/20 transition active:scale-95"
+            >
+              📋 New League
+            </Link>
+            <Link
+              to="/tournament/new"
+              className="flex items-center gap-2 rounded-xl bg-[#0f1117] px-4 py-2.5 text-sm font-semibold text-white ring-1 ring-white/10 hover:ring-white/20 transition active:scale-95"
+            >
+              🏆 Tournament
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return null
+}
+
 // ── Home tab ───────────────────────────────────────────────────────────────────
 
-function HomeTab({ clubs, clubRecords, liveGames, followedGames, claimedProfile, onCreateClub, onStartGame, setTab }) {
+function HomeTab({ clubs, clubRecords, liveGames, followedGames, claimedProfile, userRole, onCreateClub, onStartGame, setTab }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -309,8 +465,20 @@ function HomeTab({ clubs, clubRecords, liveGames, followedGames, claimedProfile,
   }, [searchQuery])
 
   return (
-    <div className="space-y-7 px-5 pt-4">
+    <div className="space-y-7 pt-4">
 
+      {/* Role-specific hero */}
+      <RoleHero
+        userRole={userRole}
+        clubs={clubs}
+        liveGames={liveGames}
+        followedGames={followedGames}
+        claimedProfile={claimedProfile}
+        onCreateClub={onCreateClub}
+        onStartGame={onStartGame}
+      />
+
+      <div className="px-5">
       {/* Team search */}
       <div>
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Find Teams</p>
@@ -445,7 +613,7 @@ function HomeTab({ clubs, clubRecords, liveGames, followedGames, claimedProfile,
               <Link
                 key={game.id}
                 to={`/game/${game.id}`}
-                className="flex items-center justify-between rounded-2xl bg-gray-900 px-4 py-3 transition hover:bg-gray-800"
+                className="flex items-center justify-between rounded-2xl bg-[#1a1f2e] px-4 py-3 transition hover:bg-[#242938] ring-1 ring-white/5"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-white">{game.homeTeam} vs {game.awayTeam}</p>
@@ -472,7 +640,7 @@ function HomeTab({ clubs, clubRecords, liveGames, followedGames, claimedProfile,
               <Link
                 key={club.id}
                 to={`/club/${club.id}`}
-                className="flex w-28 shrink-0 flex-col items-center rounded-2xl bg-gray-900 p-3 text-center transition hover:bg-gray-800"
+                className="flex w-28 shrink-0 flex-col items-center rounded-2xl bg-[#1a1f2e] p-3 text-center transition hover:bg-[#242938] ring-1 ring-white/5"
               >
                 {club.logoUrl ? (
                   <img src={club.logoUrl} alt={club.name} className="h-10 w-10 rounded-xl object-cover" />
@@ -508,7 +676,7 @@ function HomeTab({ clubs, clubRecords, liveGames, followedGames, claimedProfile,
                 <Link
                   key={game.id}
                   to={`/game/${game.id}`}
-                  className="flex items-center justify-between rounded-2xl bg-gray-900 px-4 py-3 transition hover:bg-gray-800"
+                  className="flex items-center justify-between rounded-2xl bg-[#1a1f2e] px-4 py-3 transition hover:bg-[#242938] ring-1 ring-white/5"
                 >
                   <div className="min-w-0 flex-1">
                     {isLive && (
@@ -534,13 +702,14 @@ function HomeTab({ clubs, clubRecords, liveGames, followedGames, claimedProfile,
 
       {/* Empty state */}
       {clubs.length === 0 && liveGames.length === 0 && followedGames.length === 0 && (
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-gray-700 px-8 py-14 text-center">
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-white/10 px-8 py-14 text-center">
           <span className="text-5xl">🏀</span>
           <p className="font-semibold text-white">Get started</p>
-          <p className="text-sm text-gray-400">Create a team, host a tournament, or become a fan of your favorite teams.</p>
+          <p className="text-sm text-gray-500">Create a team, host a tournament, or become a fan of your favorite teams.</p>
           <button onClick={onCreateClub} className="btn-primary mt-2 w-auto px-8">Create Team</button>
         </div>
       )}
+      </div>
     </div>
   )
 }
@@ -946,7 +1115,7 @@ function FollowingTab({ followedClubs, followedPlayers, followedClubData, follow
                 <Link
                   key={game.id}
                   to={`/game/${game.id}`}
-                  className="flex items-center justify-between rounded-2xl bg-gray-900 px-4 py-3 transition hover:bg-gray-800"
+                  className="flex items-center justify-between rounded-2xl bg-[#1a1f2e] px-4 py-3 transition hover:bg-[#242938] ring-1 ring-white/5"
                 >
                   <div className="min-w-0 flex-1">
                     {isLive && (

@@ -238,14 +238,14 @@ export default function TournamentPage() {
   if (loading) return <Spinner />
 
   if (!tournament) return (
-    <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-950 text-gray-400">
+    <div className="flex h-screen flex-col items-center justify-center gap-4 bg-[#0f1117] text-gray-400">
       <p>Tournament not found.</p>
       <Link to="/tournaments" className="text-blue-400">Browse tournaments</Link>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-28">
+    <div className="min-h-screen bg-[#0f1117] pb-28">
       <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
 
       {/* ── Cover photo ── */}
@@ -267,7 +267,7 @@ export default function TournamentPage() {
         <button
           onClick={() => photoInputRef.current?.click()}
           disabled={photoUploading}
-          className="flex w-full items-center justify-center gap-2 bg-gray-900 py-5 text-sm text-gray-500 hover:bg-gray-800 hover:text-gray-300"
+          className="flex w-full items-center justify-center gap-2 bg-[#1a1f2e] py-5 text-sm text-gray-500 hover:bg-[#242938] hover:text-gray-300"
         >
           {photoUploading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" /> : '📷'}
           {photoUploading ? 'Uploading…' : 'Add cover photo'}
@@ -282,7 +282,7 @@ export default function TournamentPage() {
       )}
 
       {/* ── Header ── */}
-      <header className="border-b border-gray-800 px-5 py-5">
+      <header className="border-b border-white/5 px-5 py-5">
         <div className="mb-3 flex items-center justify-between">
           <Link to="/tournaments" className="text-sm text-gray-500 hover:text-white">← Tournaments</Link>
           <div className="flex items-center gap-2">
@@ -310,7 +310,7 @@ export default function TournamentPage() {
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <button
               onClick={() => navigator.clipboard.writeText(tournament.joinCode)}
-              className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 ring-1 ring-gray-800 hover:ring-gray-600 transition"
+              className="flex items-center gap-2 rounded-xl bg-[#1a1f2e] px-4 py-2 ring-1 ring-white/5 hover:ring-gray-600 transition"
             >
               <span className="text-xs text-gray-500">Code</span>
               <span className="font-mono text-sm font-extrabold tracking-widest text-blue-400">
@@ -329,7 +329,7 @@ export default function TournamentPage() {
       </header>
 
       {/* ── Tab bar ── */}
-      <div className="sticky top-0 z-10 flex gap-1 border-b border-gray-800 bg-gray-950 px-5">
+      <div className="sticky top-0 z-10 flex gap-1 border-b border-white/5 bg-[#0f1117] px-5">
         {['teams', 'bracket', 'games'].map((t) => (
           <button
             key={t}
@@ -519,7 +519,7 @@ export default function TournamentPage() {
             return (
               <div
                 key={game.id}
-                className={`card flex items-center justify-between gap-3 transition ${isDragged ? 'opacity-40 ring-2 ring-indigo-500' : 'hover:bg-gray-800'}`}
+                className={`card flex items-center justify-between gap-3 transition ${isDragged ? 'opacity-40 ring-2 ring-indigo-500' : 'hover:bg-[#242938]'}`}
                 draggable={isHost}
                 onDragStart={() => setDraggedGameId(game.id)}
                 onDragOver={(e) => e.preventDefault()}
@@ -839,7 +839,7 @@ function ScheduleGameModal({ match, tournament, onConfirm, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
-      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 px-6 py-8 space-y-5">
+      <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] px-6 py-8 space-y-5">
         <h3 className="text-lg font-bold text-white">Schedule Game</h3>
         <div className="rounded-xl bg-gray-800 px-4 py-3 space-y-1">
           <p className="text-sm font-semibold text-white">{match.homeTeamName}</p>
@@ -906,7 +906,7 @@ function DeclareWinnerModal({ match, onDeclare, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
-      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 px-6 py-8 space-y-5">
+      <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] px-6 py-8 space-y-5">
         <h3 className="text-lg font-bold text-white">Declare Winner</h3>
         <p className="text-sm text-gray-400">Choose the winning team for this matchup.</p>
         <div className="flex flex-col gap-3">
@@ -935,7 +935,7 @@ function DeclareWinnerModal({ match, onDeclare, onClose }) {
 
 function Spinner() {
   return (
-    <div className="flex h-screen items-center justify-center bg-gray-950">
+    <div className="flex h-screen items-center justify-center bg-[#0f1117]">
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
     </div>
   )
@@ -984,7 +984,7 @@ function EditTournamentModal({ tourId, tournament, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
       onClick={onClose}>
-      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl"
+      <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}>
         <h3 className="mb-4 text-lg font-bold text-white">Edit Tournament</h3>
         <div className="space-y-3">
@@ -1019,7 +1019,7 @@ function EditTournamentModal({ tourId, tournament, onClose }) {
             </button>
           </div>
           {/* Danger zone */}
-          <div className="border-t border-gray-800 pt-3">
+          <div className="border-t border-white/5 pt-3">
             <button
               onClick={handleDelete}
               disabled={deleting}
@@ -1118,7 +1118,7 @@ function TournamentAutoScheduleModal({ tourId, tournament, teams, user, onClose,
   if (pending.length === 0) {
     return (
       <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center" onClick={onClose}>
-        <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
           <h3 className="mb-3 text-lg font-bold text-white">Auto-Schedule</h3>
           <p className="text-sm text-gray-400 mb-4">All matchups already have scheduled games.</p>
           <button onClick={onClose} className="btn-secondary w-full">Close</button>
@@ -1130,7 +1130,7 @@ function TournamentAutoScheduleModal({ tourId, tournament, teams, user, onClose,
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center"
       onClick={onClose}>
-      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl space-y-4"
+      <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl space-y-4"
         onClick={(e) => e.stopPropagation()}>
         <div>
           <h3 className="text-lg font-bold text-white">Auto-Schedule</h3>
@@ -1291,7 +1291,7 @@ function EditMatchupModal({ match, tournament, teams, tourId, onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl"
+        className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-4 text-lg font-bold text-white">Edit Matchup</h3>
@@ -1369,7 +1369,7 @@ function BracketSetupModal({ tournament, onGenerate, onClose, generating }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center"
       onClick={onClose}>
-      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+      <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl space-y-4 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
         <div>
           <h3 className="text-lg font-bold text-white">Generate Double-Elimination Bracket</h3>
@@ -1477,7 +1477,7 @@ function EditTeamModal({ tourId, team, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
       onClick={onClose}>
-      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl"
+      <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}>
         <h3 className="mb-4 text-lg font-bold text-white">Edit Team</h3>
         <div className="space-y-3">

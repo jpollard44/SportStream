@@ -226,7 +226,7 @@ export default function ClubPage() {
   const positions = SPORT_POSITIONS[club?.sport] || []
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-24">
+    <div className="min-h-screen bg-[#0f1117] pb-24">
       {/* Hidden file inputs */}
       <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
       <input ref={playerPhotoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePlayerPhotoUpload} />
@@ -240,7 +240,7 @@ export default function ClubPage() {
       )}
 
       {/* Header */}
-      <header className="border-b border-gray-800 px-5 py-5">
+      <header className="border-b border-white/5 px-5 py-5">
         <div className="flex items-center gap-2 mb-4">
           <Link to="/dashboard" className="text-sm text-gray-400 hover:text-white">← Dashboard</Link>
           <span className="text-gray-700">/</span>
@@ -292,7 +292,7 @@ export default function ClubPage() {
             </button>
           </div>
           {schedule.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-800 py-10 text-center">
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-white/5 py-10 text-center">
               <span className="text-3xl">📅</span>
               <p className="text-sm text-gray-400">No scheduled games yet.</p>
               <button onClick={() => setShowAddSchedule(true)}
@@ -324,7 +324,7 @@ export default function ClubPage() {
           </div>
 
           {games.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-800 py-12 text-center">
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-white/5 py-12 text-center">
               <span className="text-3xl">🎮</span>
               <p className="text-sm text-gray-400">No games yet.</p>
               <Link to={`/club/${clubId}/game/new`}
@@ -413,7 +413,7 @@ export default function ClubPage() {
           )}
 
           {players.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-800 py-12 text-center">
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-white/5 py-12 text-center">
               <span className="text-3xl">👥</span>
               <p className="text-sm text-gray-400">No players yet.</p>
               <p className="text-xs text-gray-600 max-w-[200px]">Add your roster to track stats and use for tournament sign-ups.</p>
@@ -474,7 +474,7 @@ export default function ClubPage() {
                     </div>
                   </form>
                 ) : (
-                  <div key={p.id} className="flex items-center justify-between rounded-xl bg-gray-900 px-4 py-3">
+                  <div key={p.id} className="flex items-center justify-between rounded-xl bg-[#1a1f2e] px-4 py-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <button
                         onClick={() => openPlayerPhotoInput(p.id)}
@@ -531,23 +531,23 @@ export default function ClubPage() {
           </button>
           {showAnalytics && (
             <div className="mt-2 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-gray-900 px-4 py-4 text-center">
+              <div className="rounded-2xl bg-[#1a1f2e] px-4 py-4 text-center">
                 <p className="text-2xl font-extrabold text-white tabular-nums">
                   {fanCount === null ? '…' : fanCount}
                 </p>
                 <p className="mt-1 text-xs text-gray-500">Total fans</p>
               </div>
-              <div className="rounded-2xl bg-gray-900 px-4 py-4 text-center">
+              <div className="rounded-2xl bg-[#1a1f2e] px-4 py-4 text-center">
                 <p className="text-2xl font-extrabold text-white tabular-nums">
                   {games.reduce((sum, g) => sum + (g.views || 0), 0)}
                 </p>
                 <p className="mt-1 text-xs text-gray-500">Total game views</p>
               </div>
-              <div className="rounded-2xl bg-gray-900 px-4 py-4 text-center">
+              <div className="rounded-2xl bg-[#1a1f2e] px-4 py-4 text-center">
                 <p className="text-2xl font-extrabold text-white tabular-nums">{games.length}</p>
                 <p className="mt-1 text-xs text-gray-500">Games played</p>
               </div>
-              <div className="rounded-2xl bg-gray-900 px-4 py-4 text-center">
+              <div className="rounded-2xl bg-[#1a1f2e] px-4 py-4 text-center">
                 <p className="text-2xl font-extrabold text-white tabular-nums">{players.length}</p>
                 <p className="mt-1 text-xs text-gray-500">Roster size</p>
               </div>
@@ -559,7 +559,7 @@ export default function ClubPage() {
       {/* ── Add Player Modal ── */}
       {showAddPlayer && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
-          <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl">
+          <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl">
             <h3 className="mb-4 text-lg font-bold text-white">Add Player</h3>
             <form onSubmit={handleAddPlayer} className="flex flex-col gap-3">
               <input
@@ -603,7 +603,7 @@ export default function ClubPage() {
       {/* ── Invite Link Modal ── */}
       {inviteLink && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6">
-          <div className="w-full max-w-sm rounded-2xl bg-gray-900 p-6">
+          <div className="w-full max-w-sm rounded-2xl bg-[#1a1f2e] p-6">
             <p className="mb-1 text-lg font-bold text-white">Player Added!</p>
             <p className="mb-4 text-sm text-gray-400">
               Share this invite link so the player can claim their profile and view personal stats.
@@ -634,10 +634,10 @@ export default function ClubPage() {
       {/* ── CSV Preview Modal ── */}
       {showCsvImport && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
-          <div className="w-full max-w-md rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl">
+          <div className="w-full max-w-md rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl">
             <h3 className="mb-1 text-lg font-bold text-white">Import {csvRows.length} Players</h3>
             <p className="mb-4 text-xs text-gray-500">Review before adding to roster</p>
-            <div className="max-h-64 overflow-y-auto rounded-xl border border-gray-800">
+            <div className="max-h-64 overflow-y-auto rounded-xl border border-white/5">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-gray-800">
                   <tr>
@@ -649,7 +649,7 @@ export default function ClubPage() {
                 </thead>
                 <tbody>
                   {csvRows.map((row, i) => (
-                    <tr key={i} className="border-t border-gray-800">
+                    <tr key={i} className="border-t border-white/5">
                       <td className="px-3 py-2 text-white">{row.name}</td>
                       <td className="px-3 py-2 text-gray-400">{row.nickname || '—'}</td>
                       <td className="px-3 py-2 text-gray-400">{row.number || '—'}</td>
@@ -693,7 +693,7 @@ export default function ClubPage() {
       {/* ── Confirm Delete Game ── */}
       {confirmDeleteGame && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6">
-          <div className="w-full max-w-sm rounded-2xl bg-gray-900 p-6">
+          <div className="w-full max-w-sm rounded-2xl bg-[#1a1f2e] p-6">
             <div className="mb-4 flex items-start gap-3">
               <span className="mt-0.5 shrink-0 text-xl">⚠️</span>
               <div>
@@ -851,7 +851,7 @@ function ScheduleGameModal({ clubId, club, existing, schedule, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
       onClick={onClose}>
-      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl space-y-4"
+      <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl space-y-4"
         onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-bold text-white">
           {existing ? 'Edit Scheduled Game' : 'Schedule a Game'}

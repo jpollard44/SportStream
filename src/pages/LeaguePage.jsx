@@ -104,7 +104,7 @@ export default function LeaguePage() {
 
   if (!league) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-950">
+      <div className="flex h-screen items-center justify-center bg-[#0f1117]">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
       </div>
     )
@@ -113,7 +113,7 @@ export default function LeaguePage() {
   const sportEmoji = SPORT_EMOJI[league.sport] || '🏅'
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-24 text-white">
+    <div className="min-h-screen bg-[#0f1117] pb-24 text-white">
       <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
 
       {/* Cover photo */}
@@ -135,7 +135,7 @@ export default function LeaguePage() {
         <button
           onClick={() => photoInputRef.current?.click()}
           disabled={photoUploading}
-          className="flex w-full items-center justify-center gap-2 bg-gray-900 py-5 text-sm text-gray-500 hover:bg-gray-800 hover:text-gray-300"
+          className="flex w-full items-center justify-center gap-2 bg-[#1a1f2e] py-5 text-sm text-gray-500 hover:bg-[#242938] hover:text-gray-300"
         >
           {photoUploading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" /> : '📷'}
           {photoUploading ? 'Uploading…' : 'Add cover photo'}
@@ -150,13 +150,13 @@ export default function LeaguePage() {
       )}
 
       {/* Nav */}
-      <nav className="flex items-center justify-between border-b border-gray-800 px-5 py-4">
+      <nav className="flex items-center justify-between border-b border-white/5 px-5 py-4">
         <Link to="/leagues" className="text-sm text-gray-400 hover:text-white">← Leagues</Link>
         {user && <Link to="/dashboard" className="text-sm text-gray-400 hover:text-white">Dashboard</Link>}
       </nav>
 
       {/* Header */}
-      <div className="border-b border-gray-800 px-5 py-5">
+      <div className="border-b border-white/5 px-5 py-5">
         <div className="mx-auto max-w-lg">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -196,7 +196,7 @@ export default function LeaguePage() {
             )}
             <button
               onClick={() => navigator.clipboard.writeText(league.joinCode)}
-              className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 ring-1 ring-gray-800 hover:ring-gray-600 transition"
+              className="flex items-center gap-2 rounded-xl bg-[#1a1f2e] px-4 py-2 ring-1 ring-white/5 hover:ring-gray-600 transition"
             >
               <span className="text-xs text-gray-500">Code</span>
               <span className="font-mono text-sm font-extrabold tracking-widest text-blue-400">{league.joinCode}</span>
@@ -237,7 +237,7 @@ export default function LeaguePage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-800">
+      <div className="flex border-b border-white/5">
         {[
           ['standings', 'Standings'],
           ['schedule', `Schedule (${games.length})`],
@@ -267,8 +267,8 @@ export default function LeaguePage() {
                 No standings yet. Accept teams and schedule games to see standings.
               </p>
             ) : (
-              <div className="overflow-hidden rounded-2xl bg-gray-900">
-                <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-3 border-b border-gray-800 px-4 py-2.5">
+              <div className="overflow-hidden rounded-2xl bg-[#1a1f2e]">
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-3 border-b border-white/5 px-4 py-2.5">
                   <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Team</span>
                   <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">W</span>
                   <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">L</span>
@@ -282,7 +282,7 @@ export default function LeaguePage() {
                   return (
                     <div key={t.id}
                       className={`grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-x-3 px-4 py-3 ${
-                        i < standings.length - 1 ? 'border-b border-gray-800' : ''
+                        i < standings.length - 1 ? 'border-b border-white/5' : ''
                       }`}>
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-white">{t.name}</p>
@@ -398,7 +398,7 @@ export default function LeaguePage() {
                 </p>
                 <div className="space-y-2">
                   {pending.map((t) => (
-                    <div key={t.id} className="flex items-center justify-between gap-3 rounded-xl bg-gray-900 px-4 py-3">
+                    <div key={t.id} className="flex items-center justify-between gap-3 rounded-xl bg-[#1a1f2e] px-4 py-3">
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-white">{t.name}</p>
                         <p className="text-xs text-gray-400">{t.managerName} · {t.managerEmail}</p>
@@ -546,7 +546,7 @@ function ScheduleGameModal({ leagueId, league, teams, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
       onClick={onClose}>
-      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl"
+      <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}>
         <h3 className="mb-4 text-lg font-bold text-white">Schedule Game</h3>
         <div className="space-y-3">
@@ -635,7 +635,7 @@ function EditLeagueModal({ leagueId, league, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
       onClick={onClose}>
-      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl"
+      <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}>
         <h3 className="mb-4 text-lg font-bold text-white">Edit League</h3>
         <div className="space-y-3">
@@ -671,7 +671,7 @@ function EditLeagueModal({ leagueId, league, onClose }) {
             </button>
           </div>
           {/* Danger zone */}
-          <div className="border-t border-gray-800 pt-3">
+          <div className="border-t border-white/5 pt-3">
             <button
               onClick={handleDelete}
               disabled={deleting}
@@ -767,7 +767,7 @@ function AutoScheduleModal({ leagueId, league, teams, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center"
       onClick={onClose}>
-      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl space-y-4"
+      <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl space-y-4"
         onClick={(e) => e.stopPropagation()}>
         <div>
           <h3 className="text-lg font-bold text-white">Auto-Schedule</h3>
@@ -868,7 +868,7 @@ function EditTeamModal({ leagueId, team, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
       onClick={onClose}>
-      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl"
+      <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}>
         <h3 className="mb-4 text-lg font-bold text-white">Edit Team</h3>
         <div className="space-y-3">

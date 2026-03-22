@@ -281,7 +281,7 @@ export default function PublicGamePage() {
 
   if (!game) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-950 text-gray-400">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-[#0f1117] text-gray-400">
         <p>Game not found.</p>
         <Link to="/" className="text-blue-400">← Home</Link>
       </div>
@@ -314,11 +314,11 @@ export default function PublicGamePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-10">
+    <div className="min-h-screen bg-[#0f1117] pb-10">
       {/* Follow alert */}
       {followAlert && (
         <div className="fixed top-4 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 px-4">
-          <div className="flex items-center gap-3 rounded-2xl bg-gray-900 p-4 shadow-xl ring-1 ring-yellow-600/60">
+          <div className="flex items-center gap-3 rounded-2xl bg-[#1a1f2e] p-4 shadow-2xl ring-1 ring-yellow-600/40">
             <span className="text-xl">{followAlert.label.split(' ')[0]}</span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-white">{followAlert.name}</p>
@@ -330,7 +330,7 @@ export default function PublicGamePage() {
       )}
 
       {/* Back navigation */}
-      <div className="flex items-center gap-4 overflow-x-auto border-b border-gray-800/50 bg-gray-950 px-4 py-2">
+      <div className="flex items-center gap-4 overflow-x-auto border-b border-white/5 bg-[#0f1117] px-4 py-2">
         <Link to="/" className="flex-shrink-0 text-xs text-gray-500 hover:text-gray-300">← Home</Link>
         {game.clubId && (
           <Link to={`/team/${game.clubId}`} className="flex-shrink-0 text-xs text-gray-500 hover:text-gray-300">← Team</Link>
@@ -350,17 +350,17 @@ export default function PublicGamePage() {
 
       {/* Status banner */}
       {isLive && (
-        <div className="flex items-center justify-center gap-2 bg-red-700 py-2 text-sm font-bold uppercase tracking-wider text-white">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-white" /> Live
+        <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-red-800 to-red-600 py-2.5 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-red-900/30">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-white" /> Live Now
         </div>
       )}
       {isFinal && (
-        <div className="bg-gray-800 py-2 text-center text-sm font-bold uppercase tracking-wider text-gray-300">
+        <div className="border-b border-white/5 bg-[#1a1f2e] py-2 text-center text-sm font-bold uppercase tracking-widest text-gray-400">
           Final
         </div>
       )}
       {isSetup && (
-        <div className="bg-blue-900/60 py-2 text-center text-sm font-bold uppercase tracking-wider text-blue-300">
+        <div className="border-b border-white/5 bg-blue-900/20 py-2.5 text-center text-sm font-bold uppercase tracking-widest text-blue-400">
           Upcoming
         </div>
       )}
@@ -387,7 +387,7 @@ export default function PublicGamePage() {
       />
 
       {/* Sticky tab bar */}
-      <div className="sticky top-0 z-10 flex border-b border-gray-800 bg-gray-950">
+      <div className="sticky top-0 z-10 flex border-b border-white/5" style={{ background: 'rgba(15,17,23,0.95)', backdropFilter: 'blur(12px)' }}>
         {[
           { id: 'score',   label: 'Score' },
           { id: 'plays',   label: 'Plays' },
@@ -397,8 +397,8 @@ export default function PublicGamePage() {
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`relative flex-1 py-3 text-sm font-semibold transition ${
-              tab === id ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+            className={`relative flex-1 py-3 text-sm font-semibold transition-colors duration-150 ${
+              tab === id ? 'text-white' : 'text-gray-600 hover:text-gray-400'
             }`}
           >
             {label}
@@ -423,7 +423,7 @@ export default function PublicGamePage() {
         </div>
         <button
           onClick={downloadCSV}
-          className="rounded-xl bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white"
+          className="rounded-xl bg-[#1a1f2e] px-3 py-1.5 text-xs font-medium text-gray-400 ring-1 ring-white/5 hover:text-white hover:ring-white/10 transition"
         >
           ↓ CSV
         </button>
@@ -444,7 +444,7 @@ function BaseballScoreboardHeader({ game, onTeamClick }) {
   const battingTeam = game.inningHalf === 'top' ? 'away' : 'home'
 
   return (
-    <div className="bg-gray-900 px-5 py-5">
+    <div className="bg-[#1a1f2e] px-5 py-5">
       <div className="flex items-center justify-between">
         {/* Home */}
         <div className="flex-1 text-center">
@@ -523,7 +523,7 @@ function BaseballScoreboardHeader({ game, onTeamClick }) {
 
 function BasketballScoreboardHeader({ game, localSeconds, onTeamClick }) {
   return (
-    <div className="bg-gray-900 px-5 py-8">
+    <div className="bg-[#1a1f2e] px-5 py-8">
       <div className="flex items-center justify-between">
         {/* Home */}
         <div className="flex-1 text-center">
@@ -922,7 +922,7 @@ function BasketballScoreTab({ game, plays }) {
       {recent.length > 0 && (
         <div>
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Recent</p>
-          <div className="divide-y divide-gray-800 overflow-hidden rounded-2xl bg-gray-900">
+          <div className="divide-y divide-gray-800/60 overflow-hidden rounded-2xl bg-[#1a1f2e]">
             {recent.map((play) => {
               const isHome = play.team === 'home'
               return (
@@ -973,7 +973,7 @@ function PlaysTab({ plays, game, isBaseball }) {
               {sub && <p className="text-[10px] text-gray-600">{sub}</p>}
               <div className="h-px flex-1 bg-gray-800" />
             </div>
-            <div className="mx-4 divide-y divide-gray-800 overflow-hidden rounded-2xl bg-gray-900">
+            <div className="mx-4 divide-y divide-gray-800/60 overflow-hidden rounded-2xl bg-[#1a1f2e]">
               {groupPlays.map((play) => <PlayRow key={play.id} play={play} isBaseball={isBaseball} />)}
             </div>
           </div>
