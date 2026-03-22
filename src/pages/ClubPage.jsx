@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useClub } from '../hooks/useClub'
 import {
   addPlayer, updatePlayer, deletePlayer, updateClub,
   subscribeToClubGames, subscribeToClubSchedule,
   createScheduledGame, updateGame, deleteGame, markGameFinal, createInvite,
-  getClubFanCount,
+  getClubFanCount, getClubContextOpponents, searchClubs,
 } from '../firebase/firestore'
 import { uploadClubLogo, uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate } from '../lib/formatters'
@@ -686,6 +686,7 @@ export default function ClubPage() {
           club={club}
           existing={editingScheduleGame}
           schedule={schedule}
+          games={games}
           onClose={() => { setShowAddSchedule(false); setEditingScheduleGame(null) }}
         />
       )}
@@ -798,50 +799,234 @@ function ScheduleList({ schedule, onEdit, onDelete }) {
   )
 }
 
+// ── Opponent Suggest Group ─────────────────────────────────────────────────────
+
+function SuggestGroup({ label, items, onSelect }) {
+  return (
+    <div>
+      <p className="px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wider text-gray-600">{label}</p>
+      {items.map((item, i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => onSelect(item.name, item.clubId)}
+          className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#242938]"
+        >
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#242938] text-xs font-bold text-gray-400">
+            {item.name.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-white">{item.name}</p>
+            {item.clubId && <p className="text-[10px] text-blue-400/80">Linked team</p>}
+          </div>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ── Opponent Selector Component ────────────────────────────────────────────────
+
+function OpponentSelector({ value, clubId, club, games, onChange, existing }) {
+  const [query, setQuery]               = useState('')
+  const [open, setOpen]                 = useState(false)
+  const [leagueSugg, setLeagueSugg]     = useState([])
+  const [tourSugg, setTourSugg]         = useState([])
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching]       = useState(false)
+  const wrapRef = useRef(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handler(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // Load league/tournament context once
+  useEffect(() => {
+    getClubContextOpponents(clubId)
+      .then(({ leagueOpponents, tournamentOpponents }) => {
+        setLeagueSugg(leagueOpponents)
+        setTourSugg(tournamentOpponents)
+      })
+      .catch(() => {})
+  }, [clubId])
+
+  // Derive unique recent opponents from past games
+  const recentOpponents = useMemo(() => {
+    const seen = new Map()
+    const myName = club?.name || ''
+    for (const g of games) {
+      const isHome  = g.clubId === clubId
+      const oppName = isHome ? g.awayTeam : g.homeTeam
+      const oppId   = isHome ? (g.awayClubId || null) : g.clubId
+      if (oppName && oppName !== myName && !seen.has(oppName)) {
+        seen.set(oppName, { name: oppName, clubId: oppId })
+      }
+    }
+    return Array.from(seen.values()).slice(0, 6)
+  }, [games, clubId, club])
+
+  // Firestore name search (debounced)
+  useEffect(() => {
+    if (query.length < 2) { setSearchResults([]); return }
+    setSearching(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await searchClubs(query)
+        setSearchResults(res.filter((c) => c.id !== clubId).map((c) => ({ name: c.name, clubId: c.id })))
+      } catch { setSearchResults([]) }
+      finally { setSearching(false) }
+    }, 350)
+    return () => clearTimeout(t)
+  }, [query, clubId])
+
+  const q = query.toLowerCase()
+  const filteredRecent = q ? recentOpponents.filter((o) => o.name.toLowerCase().includes(q)) : recentOpponents
+  const filteredLeague = q ? leagueSugg.filter((o) => o.name.toLowerCase().includes(q))     : leagueSugg
+  const filteredTour   = q ? tourSugg.filter((o) => o.name.toLowerCase().includes(q))       : tourSugg
+  const hasStaticSugg  = filteredRecent.length > 0 || filteredLeague.length > 0 || filteredTour.length > 0
+  const showSearch     = query.length >= 2
+
+  function select(name, cId) {
+    onChange({ name, clubId: cId || null })
+    setQuery('')
+    setOpen(false)
+  }
+
+  const isSelected = value?.name && !open
+
+  return (
+    <div ref={wrapRef} className="relative">
+      {/* Trigger area */}
+      <div
+        onClick={() => { if (isSelected) return; setOpen(true) }}
+        className={`flex min-h-[44px] items-center rounded-xl bg-[#242938] px-4 py-2.5 ring-1 transition ${
+          open ? 'ring-blue-500' : 'ring-white/5'
+        } ${!isSelected ? 'cursor-text' : ''}`}
+      >
+        {isSelected ? (
+          <>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-white">{value.name}</p>
+              {value.clubId && <p className="text-[10px] text-blue-400/80">Linked team</p>}
+            </div>
+            <button
+              type="button"
+              onClick={() => { onChange({ name: '', clubId: null }); setOpen(true) }}
+              className="ml-2 shrink-0 rounded-lg px-2.5 py-1 text-xs text-gray-500 hover:bg-white/5 hover:text-white transition"
+            >
+              Change
+            </button>
+          </>
+        ) : (
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setOpen(true)}
+            placeholder={value?.name || 'Search or type a team name…'}
+            className="w-full bg-transparent text-sm text-white outline-none placeholder:text-gray-500"
+            autoFocus={!existing}
+          />
+        )}
+      </div>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-64 overflow-y-auto rounded-2xl bg-[#1a1f2e] shadow-2xl ring-1 ring-white/10">
+          {/* Static sections (filtered by query if any) */}
+          {filteredRecent.length > 0 && <SuggestGroup label="Recent Opponents" items={filteredRecent} onSelect={select} />}
+          {filteredLeague.length > 0  && <SuggestGroup label="In Your League"   items={filteredLeague} onSelect={select} />}
+          {filteredTour.length > 0    && <SuggestGroup label="In Your Tournament" items={filteredTour} onSelect={select} />}
+
+          {/* Firestore search results */}
+          {showSearch && (
+            <div className={hasStaticSugg ? 'border-t border-white/5' : ''}>
+              {searching ? (
+                <p className="px-4 py-3 text-xs text-gray-500">Searching…</p>
+              ) : searchResults.length > 0 ? (
+                <SuggestGroup label="Search Results" items={searchResults} onSelect={select} />
+              ) : !hasStaticSugg ? (
+                <button
+                  type="button"
+                  onClick={() => select(query, null)}
+                  className="w-full px-4 py-3 text-left text-sm text-gray-300 transition hover:bg-[#242938]"
+                >
+                  Use &ldquo;<span className="font-semibold text-white">{query}</span>&rdquo; as opponent
+                </button>
+              ) : null}
+            </div>
+          )}
+
+          {/* Empty / hint */}
+          {!hasStaticSugg && !showSearch && (
+            <p className="px-4 py-4 text-center text-xs text-gray-600">
+              Type to search teams, or enter any name
+            </p>
+          )}
+
+          {/* Always offer to use typed text as-is */}
+          {query.length > 0 && (
+            <button
+              type="button"
+              onClick={() => select(query, null)}
+              className="flex w-full items-center gap-2 border-t border-white/5 px-4 py-2.5 text-left text-xs text-gray-500 transition hover:bg-[#242938] hover:text-gray-300"
+            >
+              <span className="text-gray-600">↵</span>
+              Use &ldquo;{query}&rdquo; as opponent name
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Add / Edit Schedule Game Modal ────────────────────────────────────────────
 
-function ScheduleGameModal({ clubId, club, existing, schedule, onClose }) {
-  const [opponent,  setOpponent]  = useState(existing?.awayTeam   || '')
-  const [venue,     setVenue]     = useState(existing?.venue       || '')
-  const [gameType,  setGameType]  = useState(existing?.gameType    || 'regular')
-  const [dateTime,  setDateTime]  = useState(
-    existing?.scheduledAt
-      ? new Date(existing.scheduledAt).toISOString().slice(0, 16)
-      : ''
+function ScheduleGameModal({ clubId, club, existing, schedule, games, onClose }) {
+  const [opponent, setOpponent] = useState({ name: existing?.awayTeam || '', clubId: existing?.awayClubId || null })
+  const [venue,     setVenue]   = useState(existing?.venue    || '')
+  const [gameType, setGameType] = useState(existing?.gameType || 'regular')
+  const [dateTime, setDateTime] = useState(
+    existing?.scheduledAt ? new Date(existing.scheduledAt).toISOString().slice(0, 16) : ''
   )
-  const [saving, setSaving] = useState(false)
+  const [saving, setSaving]   = useState(false)
   const [conflict, setConflict] = useState('')
 
   function checkConflict(isoStr) {
     if (!isoStr) { setConflict(''); return }
     const t = new Date(isoStr).getTime()
-    const twoHours = 2 * 60 * 60 * 1000
     const clash = schedule.find((g) => {
       if (existing && g.id === existing.id) return false
       if (!g.scheduledAt) return false
-      return Math.abs(new Date(g.scheduledAt).getTime() - t) < twoHours
+      return Math.abs(new Date(g.scheduledAt).getTime() - t) < 2 * 60 * 60 * 1000
     })
-    setConflict(clash ? `Conflict: already have a game within 2 hours (${new Date(clash.scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })})` : '')
+    setConflict(clash
+      ? `Conflict: game within 2 hrs (${new Date(clash.scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })})`
+      : '')
   }
 
   async function handleSave(e) {
     e.preventDefault()
-    if (!opponent.trim()) return
+    if (!opponent.name.trim()) return
     setSaving(true)
     try {
       const data = {
-        awayTeam:    opponent.trim(),
+        awayTeam:    opponent.name.trim(),
+        awayClubId:  opponent.clubId || null,
         homeTeam:    club?.name || 'Home',
         venue:       venue.trim(),
         gameType,
         scheduledAt: dateTime || null,
         sport:       club?.sport || 'basketball',
       }
-      if (existing) {
-        await updateGame(existing.id, data)
-      } else {
-        await createScheduledGame(clubId, data)
-      }
+      if (existing) await updateGame(existing.id, data)
+      else          await createScheduledGame(clubId, data)
       onClose()
     } finally {
       setSaving(false)
@@ -851,7 +1036,7 @@ function ScheduleGameModal({ clubId, club, existing, schedule, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
       onClick={onClose}>
-      <div className="w-full max-w-sm rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl space-y-4"
+      <div className="w-full max-w-sm space-y-4 rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-bold text-white">
           {existing ? 'Edit Scheduled Game' : 'Schedule a Game'}
@@ -860,14 +1045,13 @@ function ScheduleGameModal({ clubId, club, existing, schedule, onClose }) {
         <form onSubmit={handleSave} className="space-y-3">
           <div>
             <label className="mb-1.5 block text-sm text-gray-400">Opponent *</label>
-            <input
-              type="text"
+            <OpponentSelector
               value={opponent}
-              onChange={(e) => setOpponent(e.target.value)}
-              placeholder="Opponent team name"
-              required
-              autoFocus
-              className="input"
+              clubId={clubId}
+              club={club}
+              games={games}
+              onChange={setOpponent}
+              existing={existing}
             />
           </div>
 
@@ -879,9 +1063,7 @@ function ScheduleGameModal({ clubId, club, existing, schedule, onClose }) {
               onChange={(e) => { setDateTime(e.target.value); checkConflict(e.target.value) }}
               className="input"
             />
-            {conflict && (
-              <p className="mt-1 text-xs text-orange-400">⚠ {conflict}</p>
-            )}
+            {conflict && <p className="mt-1 text-xs text-orange-400">⚠ {conflict}</p>}
           </div>
 
           <div>
@@ -904,7 +1086,7 @@ function ScheduleGameModal({ clubId, club, existing, schedule, onClose }) {
                   type="button"
                   onClick={() => setGameType(t)}
                   className={`flex-1 rounded-xl py-2 text-sm font-semibold capitalize transition ${
-                    gameType === t ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    gameType === t ? 'bg-indigo-600 text-white' : 'bg-[#242938] text-gray-300 hover:bg-[#2e3650]'
                   }`}
                 >
                   {t}
@@ -915,7 +1097,7 @@ function ScheduleGameModal({ clubId, club, existing, schedule, onClose }) {
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
-            <button type="submit" disabled={saving || !opponent.trim()} className="btn-primary flex-1">
+            <button type="submit" disabled={saving || !opponent.name.trim()} className="btn-primary flex-1">
               {saving ? 'Saving…' : existing ? 'Save Changes' : 'Add to Schedule'}
             </button>
           </div>

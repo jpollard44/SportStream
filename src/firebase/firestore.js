@@ -578,6 +578,55 @@ export async function getClubFanCount(clubId) {
   return snap.size
 }
 
+// ─── Opponent context for schedule builder ────────────────────────────────────
+
+// Returns teams from active leagues & tournaments this club is enrolled in.
+// Uses collectionGroup('teams') to find parent league/tournament IDs, then
+// fetches sibling teams — so the club can quickly pick known opponents.
+export async function getClubContextOpponents(clubId) {
+  const teamSnap = await getDocs(
+    query(collectionGroup(db, 'teams'), where('clubId', '==', clubId))
+  )
+
+  const leagueIds = new Set()
+  const tourIds   = new Set()
+
+  for (const d of teamSnap.docs) {
+    // path: (leagues|tournaments)/{parentId}/teams/{teamId}
+    const parentCollId = d.ref.parent.parent?.parent?.id  // 'leagues' or 'tournaments'
+    const parentId     = d.ref.parent.parent?.id
+    if (!parentId) continue
+    if (parentCollId === 'leagues')     leagueIds.add(parentId)
+    if (parentCollId === 'tournaments') tourIds.add(parentId)
+  }
+
+  const leagueOpponents      = []
+  const tournamentOpponents  = []
+
+  await Promise.all([
+    ...Array.from(leagueIds).map(async (leagueId) => {
+      const snap = await getDocs(collection(db, 'leagues', leagueId, 'teams'))
+      snap.docs.forEach((t) => {
+        const d = t.data()
+        if (d.clubId !== clubId && d.status !== 'rejected') {
+          leagueOpponents.push({ name: d.name, clubId: d.clubId || null })
+        }
+      })
+    }),
+    ...Array.from(tourIds).map(async (tourId) => {
+      const snap = await getDocs(collection(db, 'tournaments', tourId, 'teams'))
+      snap.docs.forEach((t) => {
+        const d = t.data()
+        if (d.clubId !== clubId && d.status !== 'rejected' && d.status !== 'withdrawn') {
+          tournamentOpponents.push({ name: d.name, clubId: d.clubId || null })
+        }
+      })
+    }),
+  ])
+
+  return { leagueOpponents, tournamentOpponents }
+}
+
 // ─── Fan activity feed ────────────────────────────────────────────────────────
 
 const NOTABLE_TYPES = new Set([
