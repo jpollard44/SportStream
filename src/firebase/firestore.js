@@ -707,6 +707,44 @@ export async function getRecentPlaysForPlayers(playerIds) {
 
 // ─── Scheduled games ──────────────────────────────────────────────────────────
 
+// ─── Season stats ─────────────────────────────────────────────────────────────
+
+// All players' season stats for a club
+export async function getSeasonStats(clubId) {
+  const snap = await getDocs(collection(db, 'clubs', clubId, 'seasonStats'))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+// Single player's season stats for a club
+export async function getPlayerSeasonStats(clubId, playerId) {
+  const snap = await getDoc(doc(db, 'clubs', clubId, 'seasonStats', playerId))
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null
+}
+
+// ─── Public game discovery ────────────────────────────────────────────────────
+
+export function subscribeUpcomingGames(onChange) {
+  const q = query(collection(db, 'games'), where('status', '==', 'setup'), limit(30))
+  return onSnapshot(q, (snap) => {
+    const games = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    games.sort((a, b) => {
+      if (!a.scheduledAt) return 1
+      if (!b.scheduledAt) return -1
+      return new Date(a.scheduledAt) - new Date(b.scheduledAt)
+    })
+    onChange(games)
+  })
+}
+
+export function subscribeRecentFinalGames(onChange) {
+  const q = query(collection(db, 'games'), where('status', '==', 'final'), limit(30))
+  return onSnapshot(q, (snap) => {
+    const games = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    games.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+    onChange(games)
+  })
+}
+
 // Returns all non-undone plays for a player across all games (collectionGroup query)
 export async function getPlayerHistoricalPlays(playerId) {
   const q = query(

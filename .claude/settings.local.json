@@ -24,7 +24,11 @@
       "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(git checkout:*)",
-      "Bash(node_modules/.bin/vite build:*)"
+      "Bash(node_modules/.bin/vite build:*)",
+      "Read(//Users/jordanpollard/SportStream/**)",
+      "Bash(cp /Users/jordanpollard/SportStream/.env.local /Users/jordanpollard/SportStream/.claude/worktrees/jolly-chandrasekhar/.env.local)",
+      "Bash(firebase functions:delete checkPremium --region us-central1 --force)",
+      "Bash(firebase functions:delete sendWeeklyDigest --region us-central1 --force)"
     ]
   }
 }

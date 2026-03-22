@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { PageSpinner } from '../components/ui'
-import { getPlayer, getClub, getPlayerHistoricalPlays, subscribeToUser, followPlayer, unfollowPlayer, updatePlayer } from '../firebase/firestore'
+import { getPlayer, getClub, getPlayerHistoricalPlays, getPlayerSeasonStats, subscribeToUser, followPlayer, unfollowPlayer, updatePlayer } from '../firebase/firestore'
 import { useLiveGamePlayers } from '../hooks/useLiveGamePlayers'
 import { uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate, nickDisplay } from '../lib/formatters'
@@ -223,22 +223,29 @@ export default function PlayerPage() {
   const { clubId, playerId } = useParams()
   const { user } = useAuth()
 
-  const [player, setPlayer]   = useState(null)
-  const [club, setClub]       = useState(null)
-  const [plays, setPlays]     = useState([])
-  const [userDoc, setUserDoc] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [player, setPlayer]         = useState(null)
+  const [club, setClub]             = useState(null)
+  const [plays, setPlays]           = useState([])
+  const [seasonStats, setSeasonStats] = useState(null)
+  const [userDoc, setUserDoc]       = useState(null)
+  const [loading, setLoading]       = useState(true)
   const [followLoading, setFollowLoading] = useState(false)
   const [showSignIn, setShowSignIn] = useState(false)
   const [showEditProfile, setShowEditProfile] = useState(false)
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([getPlayer(clubId, playerId), getClub(clubId), getPlayerHistoricalPlays(playerId)])
-      .then(([p, c, rawPlays]) => {
+    Promise.all([
+      getPlayer(clubId, playerId),
+      getClub(clubId),
+      getPlayerHistoricalPlays(playerId),
+      getPlayerSeasonStats(clubId, playerId),
+    ])
+      .then(([p, c, rawPlays, ss]) => {
         setPlayer(p)
         setClub(c)
         setPlays(rawPlays)
+        setSeasonStats(ss)
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -400,6 +407,52 @@ export default function PlayerPage() {
       </div>
 
       <div className="mx-auto max-w-lg space-y-6 px-5 pt-6">
+
+        {/* Season Stats (from persisted aggregation) */}
+        {seasonStats && (
+          <section>
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">This Season</p>
+            {isBaseball ? (
+              <div className="grid grid-cols-4 gap-2 rounded-2xl bg-[#1a1f2e] p-4 sm:grid-cols-8">
+                {[
+                  { label: 'GP', value: seasonStats.gamesPlayed ?? 0 },
+                  { label: 'AVG', value: battingAvg(seasonStats.h ?? 0, seasonStats.ab ?? 0) },
+                  { label: 'AB', value: seasonStats.ab ?? 0 },
+                  { label: 'H', value: seasonStats.h ?? 0 },
+                  { label: 'HR', value: seasonStats.hr ?? 0 },
+                  { label: 'RBI', value: seasonStats.rbi ?? 0 },
+                  { label: 'BB', value: seasonStats.bb ?? 0 },
+                  { label: 'K', value: seasonStats.k ?? 0 },
+                ].map(({ label, value }) => (
+                  <div key={label} className="text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-600">{label}</p>
+                    <p className="mt-0.5 text-lg font-extrabold text-blue-400">{value}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 gap-2 rounded-2xl bg-[#1a1f2e] p-4 sm:grid-cols-7">
+                {(() => {
+                  const gp = seasonStats.gamesPlayed || 1
+                  return [
+                    { label: 'GP', value: seasonStats.gamesPlayed ?? 0 },
+                    { label: 'PPG', value: ((seasonStats.pts ?? 0) / gp).toFixed(1) },
+                    { label: 'RPG', value: ((seasonStats.reb ?? 0) / gp).toFixed(1) },
+                    { label: 'APG', value: ((seasonStats.ast ?? 0) / gp).toFixed(1) },
+                    { label: 'PTS', value: seasonStats.pts ?? 0 },
+                    { label: 'REB', value: seasonStats.reb ?? 0 },
+                    { label: 'AST', value: seasonStats.ast ?? 0 },
+                  ]
+                })().map(({ label, value }) => (
+                  <div key={label} className="text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-600">{label}</p>
+                    <p className="mt-0.5 text-lg font-extrabold text-blue-400">{value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Career stats */}
         {plays.length > 0 && (

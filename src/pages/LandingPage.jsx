@@ -124,6 +124,9 @@ export default function LandingPage() {
           Sport<span className="text-blue-500">Stream</span>
         </Link>
         <div className="flex items-center gap-1">
+          <Link to="/games" className="hidden px-3 py-2 text-sm text-gray-400 transition hover:text-white sm:block">
+            Browse Games
+          </Link>
           <Link to="/tournaments" className="hidden px-3 py-2 text-sm text-gray-400 transition hover:text-white sm:block">
             Tournaments
           </Link>

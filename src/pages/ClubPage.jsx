@@ -6,8 +6,9 @@ import {
   subscribeToClubGames, subscribeToClubSchedule,
   createScheduledGame, updateGame, deleteGame, markGameFinal, createInvite,
   getClubFanCount, getClubContextOpponents, searchClubs,
-  getHeadToHead, getRecentResults, getClubRecord,
+  getHeadToHead, getRecentResults, getClubRecord, getSeasonStats,
 } from '../firebase/firestore'
+import { battingAvg, isBaseballSport } from '../lib/statsHelpers'
 import { uploadClubLogo, uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate } from '../lib/formatters'
 import { SPORT_POSITIONS } from '../lib/baseballHelpers'
@@ -157,10 +158,24 @@ export default function ClubPage() {
   const [fanCount, setFanCount] = useState(null)
   const [showAnalytics, setShowAnalytics] = useState(false)
 
+  // Season stats leaderboard
+  const [seasonStats, setSeasonStats] = useState(null)
+  const [showSeasonStats, setShowSeasonStats] = useState(false)
+  const [loadingSeasonStats, setLoadingSeasonStats] = useState(false)
+
   useEffect(() => {
     if (!showAnalytics || !clubId) return
     getClubFanCount(clubId).then(setFanCount).catch(() => {})
   }, [showAnalytics, clubId])
+
+  useEffect(() => {
+    if (!showSeasonStats || seasonStats || loadingSeasonStats || !clubId) return
+    setLoadingSeasonStats(true)
+    getSeasonStats(clubId)
+      .then(setSeasonStats)
+      .catch(() => setSeasonStats([]))
+      .finally(() => setLoadingSeasonStats(false))
+  }, [showSeasonStats, clubId, seasonStats, loadingSeasonStats])
 
   function resetAddForm() {
     setName(''); setNickname(''); setNumber(''); setPosition(''); setEmail(''); setPhone('')
@@ -558,6 +573,102 @@ export default function ClubPage() {
                     </div>
                   </div>
                 )
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* ── Season Stats ── */}
+        <section>
+          <button
+            onClick={() => setShowSeasonStats((v) => !v)}
+            className="flex w-full items-center justify-between py-2 text-left"
+          >
+            <h2 className="section-label">Season Stats</h2>
+            <span className="text-xs text-gray-600">{showSeasonStats ? '▲ Hide' : '▼ Show'}</span>
+          </button>
+          {showSeasonStats && (
+            <div className="mt-2">
+              {loadingSeasonStats ? (
+                <div className="flex items-center justify-center py-10">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                </div>
+              ) : !seasonStats || seasonStats.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-500">
+                  Season stats appear here once games are marked final.
+                </p>
+              ) : isBaseballSport(club?.sport) ? (
+                <div className="overflow-x-auto rounded-2xl bg-[#1a1f2e]">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-gray-600">
+                        <th className="px-3 py-2 text-left">#</th>
+                        <th className="px-2 py-2 text-left">Player</th>
+                        <th className="px-2 py-2 text-center">GP</th>
+                        <th className="px-2 py-2 text-center">AB</th>
+                        <th className="px-2 py-2 text-center font-bold text-white">H</th>
+                        <th className="px-2 py-2 text-center">HR</th>
+                        <th className="px-2 py-2 text-center">RBI</th>
+                        <th className="px-2 py-2 text-center">BB</th>
+                        <th className="px-2 py-2 text-center">K</th>
+                        <th className="px-2 py-2 text-center">AVG</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...seasonStats].sort((a, b) => (b.h || 0) - (a.h || 0)).map((s) => (
+                        <tr key={s.id} className="border-t border-white/5 text-white">
+                          <td className="px-3 py-2 font-mono text-gray-400">{s.number || '—'}</td>
+                          <td className="whitespace-nowrap px-2 py-2 font-medium">
+                            <Link to={`/player/${clubId}/${s.id}`} className="hover:text-blue-300 transition">{s.name}</Link>
+                          </td>
+                          <td className="px-2 py-2 text-center text-gray-500">{s.gamesPlayed || 0}</td>
+                          <td className="px-2 py-2 text-center text-gray-400">{s.ab || 0}</td>
+                          <td className="px-2 py-2 text-center font-bold">{s.h || 0}</td>
+                          <td className="px-2 py-2 text-center text-gray-400">{s.hr || 0}</td>
+                          <td className="px-2 py-2 text-center text-gray-400">{s.rbi || 0}</td>
+                          <td className="px-2 py-2 text-center text-gray-400">{s.bb || 0}</td>
+                          <td className="px-2 py-2 text-center text-gray-400">{s.k || 0}</td>
+                          <td className="px-2 py-2 text-center font-mono font-bold text-blue-400">
+                            {battingAvg(s.h || 0, s.ab || 0)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl bg-[#1a1f2e]">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-gray-600">
+                        <th className="px-3 py-2 text-left">#</th>
+                        <th className="px-2 py-2 text-left">Player</th>
+                        <th className="px-2 py-2 text-center">GP</th>
+                        <th className="px-2 py-2 text-center font-bold text-white">PTS</th>
+                        <th className="px-2 py-2 text-center">REB</th>
+                        <th className="px-2 py-2 text-center">AST</th>
+                        <th className="px-2 py-2 text-center">STL</th>
+                        <th className="px-2 py-2 text-center">BLK</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...seasonStats].sort((a, b) => (b.pts || 0) - (a.pts || 0)).map((s) => (
+                        <tr key={s.id} className="border-t border-white/5 text-white">
+                          <td className="px-3 py-2 font-mono text-gray-400">{s.number || '—'}</td>
+                          <td className="whitespace-nowrap px-2 py-2 font-medium">
+                            <Link to={`/player/${clubId}/${s.id}`} className="hover:text-blue-300 transition">{s.name}</Link>
+                          </td>
+                          <td className="px-2 py-2 text-center text-gray-500">{s.gamesPlayed || 0}</td>
+                          <td className="px-2 py-2 text-center font-extrabold text-blue-400">{s.pts || 0}</td>
+                          <td className="px-2 py-2 text-center text-gray-400">{s.reb || 0}</td>
+                          <td className="px-2 py-2 text-center text-gray-400">{s.ast || 0}</td>
+                          <td className="px-2 py-2 text-center text-gray-400">{s.stl || 0}</td>
+                          <td className="px-2 py-2 text-center text-gray-400">{s.blk || 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           )}

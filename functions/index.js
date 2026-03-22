@@ -509,17 +509,85 @@ exports.onNewPlay = onDocumentCreated('games/{gameId}/plays/{playId}', async (ev
   }
 })
 
-// ── onGameComplete — stat summary push when game goes final ───────────────────
+// ── onGameComplete — season stats aggregation + stat summary push ─────────────
 exports.onGameComplete = onDocumentUpdated('games/{gameId}', async (event) => {
   const before = event.data.before.data()
   const after  = event.data.after.data()
 
   if (before.status === 'final' || after.status !== 'final') return
 
-  const gameId   = event.params.gameId
-  const gameUrl  = `${APP_URL}/game/${gameId}`
-  const home     = after.homeTeam || 'Home'
-  const away     = after.awayTeam || 'Away'
+  const gameId     = event.params.gameId
+  const gameUrl    = `${APP_URL}/game/${gameId}`
+  const home       = after.homeTeam || 'Home'
+  const away       = after.awayTeam || 'Away'
+  const sport      = after.sport || 'basketball'
+  const clubId     = after.clubId || null
+  const awayClubId = after.awayClubId || null
+
+  // ── Season stats aggregation ───────────────────────────────────────────────
+  try {
+    const playsSnap = await db.collection('games').doc(gameId).collection('plays').get()
+    const plays = playsSnap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((p) => !p.undone && p.playerId)
+
+    const BB_HIT_TYPES    = new Set(['single', 'double', 'triple', 'homeRun'])
+    const BB_AT_BAT_TYPES = new Set(['single', 'double', 'triple', 'homeRun', 'strikeout', 'groundOut', 'flyOut', 'lineOut'])
+    const isBaseball = sport === 'baseball' || sport === 'softball'
+
+    const playerStats = {}
+    for (const play of plays) {
+      const pid = play.playerId
+      if (!playerStats[pid]) {
+        playerStats[pid] = {
+          name: play.playerName || '',
+          number: play.playerNumber || '',
+          team: play.team || 'home',
+          ...(isBaseball
+            ? { ab: 0, h: 0, hr: 0, rbi: 0, bb: 0, k: 0 }
+            : { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, foul: 0, to: 0 }),
+        }
+      }
+      const s = playerStats[pid]
+      if (isBaseball) {
+        if (BB_AT_BAT_TYPES.has(play.type)) s.ab++
+        if (BB_HIT_TYPES.has(play.type))    s.h++
+        if (play.type === 'homeRun')         s.hr++
+        if (play.type === 'walk' || play.type === 'hitByPitch') s.bb++
+        if (play.type === 'strikeout')       s.k++
+        if (play.points)                     s.rbi += play.points
+      } else {
+        if (play.points)               s.pts  += play.points
+        if (play.type === 'rebound')   s.reb  += 1
+        if (play.type === 'assist')    s.ast  += 1
+        if (play.type === 'steal')     s.stl  += 1
+        if (play.type === 'block')     s.blk  += 1
+        if (play.type === 'foul')      s.foul += 1
+        if (play.type === 'turnover')  s.to   += 1
+      }
+    }
+
+    const batch = db.batch()
+    for (const [pid, stats] of Object.entries(playerStats)) {
+      const targetClubId = stats.team === 'home' ? clubId : awayClubId
+      if (!targetClubId) continue
+      const ref = db.collection('clubs').doc(targetClubId).collection('seasonStats').doc(pid)
+      const inc = admin.firestore.FieldValue.increment
+      const update = {
+        name: stats.name,
+        number: stats.number,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+        gamesPlayed: inc(1),
+        ...(isBaseball
+          ? { ab: inc(stats.ab), h: inc(stats.h), hr: inc(stats.hr), rbi: inc(stats.rbi), bb: inc(stats.bb), k: inc(stats.k) }
+          : { pts: inc(stats.pts), reb: inc(stats.reb), ast: inc(stats.ast), stl: inc(stats.stl), blk: inc(stats.blk), foul: inc(stats.foul), to: inc(stats.to) }),
+      }
+      batch.set(ref, update, { merge: true })
+    }
+    if (Object.keys(playerStats).length > 0) await batch.commit()
+  } catch (e) {
+    console.error('onGameComplete season stats error:', e)
+  }
 
   // Collect all playerIds from both lineups
   const homeLineup = after.homeLineup || []

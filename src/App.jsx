@@ -25,6 +25,7 @@ import LeagueJoinPage from './pages/LeagueJoinPage'
 import FanProfilePage from './pages/FanProfilePage'
 import WallOfFamePage from './pages/WallOfFamePage'
 import RolePickerPage from './pages/RolePickerPage'
+import GamesPage from './pages/GamesPage'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import BottomNav from './components/layout/BottomNav'
 
@@ -136,6 +137,7 @@ export default function App() {
         </Route>
 
         {/* Public routes — no auth required */}
+        <Route path="/games" element={<GamesPage />} />
         <Route path="/game/:gameId" element={<PublicGamePage />} />
         <Route path="/team/:clubId" element={<TeamPage />} />
         <Route path="/player/:clubId/:playerId" element={<PlayerPage />} />
