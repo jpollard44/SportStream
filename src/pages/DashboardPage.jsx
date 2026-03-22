@@ -5,7 +5,7 @@ import {
   subscribeToUserClubs, createClub, deleteClub,
   subscribeToUser, subscribeToFollowedGames,
   searchClubs, getClub, followClub, unfollowClub,
-  subscribeLiveGames, getClubRecord,
+  subscribeLiveGames, getClubRecord, unfollowPlayer,
 } from '../firebase/firestore'
 import { subscribeToUserTournaments, deleteTournament } from '../firebase/tournaments'
 import { subscribeToUserLeagues, deleteLeague } from '../firebase/leagues'
@@ -35,6 +35,7 @@ export default function DashboardPage() {
   const [tournaments, setTournaments] = useState([])
   const [leagues, setLeagues] = useState([])
   const [followedClubs, setFollowedClubs] = useState([])
+  const [followedPlayers, setFollowedPlayers] = useState([])
   const [followedClubData, setFollowedClubData] = useState([])
   const [followedGames, setFollowedGames] = useState([])
   const [liveGames, setLiveGames] = useState([])
@@ -49,7 +50,10 @@ export default function DashboardPage() {
     if (!user) return
     const u1 = subscribeToUserClubs(user.uid, setClubs)
     const u2 = subscribeToUserTournaments(user.uid, setTournaments)
-    const u3 = subscribeToUser(user.uid, (u) => setFollowedClubs(u?.followedClubs || []))
+    const u3 = subscribeToUser(user.uid, (u) => {
+      setFollowedClubs(u?.followedClubs || [])
+      setFollowedPlayers(u?.followedPlayers || [])
+    })
     const u4 = subscribeToUserLeagues(user.uid, setLeagues)
     const u5 = subscribeLiveGames(setLiveGames)
     return () => { u1(); u2(); u3(); u4(); u5() }
@@ -116,15 +120,19 @@ export default function DashboardPage() {
   async function handleUnfollow(clubId) {
     if (user) await unfollowClub(user.uid, clubId)
   }
+  async function handleUnfollowPlayer(playerId) {
+    if (user) await unfollowPlayer(user.uid, playerId)
+  }
 
   const sharedProps = {
     clubs, tournaments, leagues, clubRecords,
-    followedClubs, followedClubData, followedGames, liveGames,
+    followedClubs, followedPlayers, followedClubData, followedGames, liveGames,
     onDeleteClub: handleDeleteClub,
     onDeleteTournament: handleDeleteTournament,
     onDeleteLeague: handleDeleteLeague,
     onFollow: handleFollow,
     onUnfollow: handleUnfollow,
+    onUnfollowPlayer: handleUnfollowPlayer,
   }
 
   return (
@@ -686,7 +694,7 @@ function EventsTab({ tournaments, leagues, onDeleteTournament, onDeleteLeague })
 
 // ── Following tab ──────────────────────────────────────────────────────────────
 
-function FollowingTab({ followedClubs, followedClubData, followedGames, clubRecords, onFollow, onUnfollow }) {
+function FollowingTab({ followedClubs, followedPlayers, followedClubData, followedGames, clubRecords, onFollow, onUnfollow, onUnfollowPlayer }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -797,6 +805,47 @@ function FollowingTab({ followedClubs, followedClubData, followedGames, clubReco
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Followed players */}
+      {followedPlayers.length > 0 && (
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+            Following Players ({followedPlayers.length})
+          </p>
+          <div className="flex flex-col gap-2">
+            {followedPlayers.map((fp) => (
+              <div key={fp.playerId} className="flex items-center gap-3 rounded-2xl bg-gray-900 px-4 py-3 transition hover:bg-gray-800">
+                {fp.photoUrl ? (
+                  <img src={fp.photoUrl} alt={fp.name} className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-900 text-sm font-bold text-blue-200">
+                    {fp.number || '?'}
+                  </div>
+                )}
+                <Link to={`/player/${fp.clubId}/${fp.playerId}`} className="min-w-0 flex-1">
+                  {fp.nickname ? (
+                    <>
+                      <p className="truncate font-bold text-white">"{fp.nickname}"</p>
+                      <p className="truncate text-xs text-gray-500">{fp.name} · {fp.clubName || fp.clubSport || ''}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="truncate font-semibold text-white">{fp.name}</p>
+                      <p className="truncate text-xs text-gray-500">{fp.clubName || fp.clubSport || ''}</p>
+                    </>
+                  )}
+                </Link>
+                <button
+                  onClick={() => onUnfollowPlayer(fp.playerId)}
+                  className="shrink-0 text-xs text-gray-600 hover:text-red-400 transition"
+                >
+                  Unfollow
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

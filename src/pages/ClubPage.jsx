@@ -1,9 +1,8 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useClub } from '../hooks/useClub'
 import { addPlayer, updatePlayer, deletePlayer, updateClub, subscribeToClubGames, deleteGame, markGameFinal } from '../firebase/firestore'
 import { uploadClubLogo, uploadPlayerPhoto } from '../firebase/storage'
-import { useEffect, useRef } from 'react'
 import { formatDate } from '../lib/formatters'
 import { SPORT_POSITIONS } from '../lib/baseballHelpers'
 
@@ -28,6 +27,55 @@ export default function ClubPage() {
   // Game actions
   const [confirmDeleteGame, setConfirmDeleteGame] = useState(null)
   const [deletingGame, setDeletingGame] = useState(false)
+
+  // CSV import
+  const [showCsvImport, setShowCsvImport] = useState(false)
+  const [csvRows, setCsvRows] = useState([])    // parsed preview rows
+  const [csvImporting, setCsvImporting] = useState(false)
+  const csvInputRef = useRef(null)
+
+  function handleCsvFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target.result
+      const lines = text.split(/\r?\n/).filter((l) => l.trim())
+      if (lines.length < 2) return
+      // Detect header row
+      const headers = lines[0].split(',').map((h) => h.trim().toLowerCase())
+      const nameIdx     = headers.findIndex((h) => h.includes('name') && !h.includes('nick'))
+      const nickIdx     = headers.findIndex((h) => h.includes('nick'))
+      const numberIdx   = headers.findIndex((h) => h.includes('num') || h === '#')
+      const positionIdx = headers.findIndex((h) => h.includes('pos'))
+      const rows = lines.slice(1).map((line) => {
+        const cols = line.split(',').map((c) => c.trim().replace(/^"|"$/g, ''))
+        return {
+          name:     nameIdx >= 0     ? cols[nameIdx]     : '',
+          nickname: nickIdx >= 0     ? cols[nickIdx]     : '',
+          number:   numberIdx >= 0   ? cols[numberIdx]   : '',
+          position: positionIdx >= 0 ? cols[positionIdx] : '',
+        }
+      }).filter((r) => r.name)
+      setCsvRows(rows)
+      setShowCsvImport(true)
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  async function handleCsvImport() {
+    setCsvImporting(true)
+    try {
+      for (const row of csvRows) {
+        await addPlayer(clubId, { name: row.name, nickname: row.nickname, number: row.number, position: row.position, email: '', phone: '' })
+      }
+      setShowCsvImport(false)
+      setCsvRows([])
+    } finally {
+      setCsvImporting(false)
+    }
+  }
 
   // Photo upload
   const [logoUploading, setLogoUploading] = useState(false)
@@ -148,6 +196,7 @@ export default function ClubPage() {
       {/* Hidden file inputs */}
       <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
       <input ref={playerPhotoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePlayerPhotoUpload} />
+      <input ref={csvInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleCsvFile} />
 
       {uploadError && (
         <div className="mx-5 mt-3 flex items-center justify-between gap-2 rounded-xl bg-red-900/40 px-4 py-2.5 text-sm text-red-300">
@@ -257,15 +306,46 @@ export default function ClubPage() {
 
         {/* ── Roster ── */}
         <section>
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="section-label">Roster ({players.length})</h2>
-            <button
-              onClick={() => setShowAddPlayer(true)}
-              className="rounded-full bg-gray-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-600 transition"
-            >
-              + Add Player
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => csvInputRef.current?.click()}
+                className="rounded-full bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-400 hover:bg-gray-700 hover:text-white transition"
+                title="Import players from CSV"
+              >
+                ↑ CSV
+              </button>
+              <button
+                onClick={() => setShowAddPlayer(true)}
+                className="rounded-full bg-gray-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-600 transition"
+              >
+                + Add Player
+              </button>
+            </div>
           </div>
+
+          {/* Onboarding banner — shown when team is brand new */}
+          {players.length === 0 && games.length === 0 && (
+            <div className="mb-4 rounded-2xl border border-blue-800/40 bg-blue-950/30 p-4">
+              <p className="mb-2 text-sm font-bold text-blue-300">Getting Started</p>
+              <ol className="space-y-1.5 text-sm text-blue-200/80">
+                <li className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-600 text-[10px] font-bold text-white">✓</span>
+                  Created your team
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-700 text-[10px] font-bold text-gray-400">2</span>
+                  <button onClick={() => setShowAddPlayer(true)} className="underline underline-offset-2 hover:text-white">Add your first players</button>
+                  <span className="text-[10px] text-blue-400">(or ↑ CSV import)</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-700 text-[10px] font-bold text-gray-400">3</span>
+                  <Link to={`/club/${clubId}/game/new`} className="underline underline-offset-2 hover:text-white">Create your first game</Link>
+                </li>
+              </ol>
+            </div>
+          )}
 
           {players.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-800 py-12 text-center">
@@ -348,7 +428,7 @@ export default function ClubPage() {
                         )}
                         <span className="absolute -bottom-0.5 -right-0.5 hidden h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-600 text-[8px] text-white group-hover:flex">✏</span>
                       </button>
-                      <div className="min-w-0">
+                      <Link to={`/player/${clubId}/${p.id}`} className="min-w-0 hover:opacity-80">
                         {p.nickname ? (
                           <>
                             <p className="truncate font-bold text-white">"{p.nickname}"</p>
@@ -362,7 +442,7 @@ export default function ClubPage() {
                           {p.email && <span className="truncate max-w-[140px]">{p.email}</span>}
                           {p.phone && <span>{p.phone}</span>}
                         </div>
-                      </div>
+                      </Link>
                     </div>
                     <div className="flex shrink-0 items-center gap-3 ml-2">
                       <button onClick={() => startEdit(p)} className="text-xs text-gray-500 hover:text-blue-400">Edit</button>
@@ -416,6 +496,54 @@ export default function ClubPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── CSV Preview Modal ── */}
+      {showCsvImport && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
+          <div className="w-full max-w-md rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl">
+            <h3 className="mb-1 text-lg font-bold text-white">Import {csvRows.length} Players</h3>
+            <p className="mb-4 text-xs text-gray-500">Review before adding to roster</p>
+            <div className="max-h-64 overflow-y-auto rounded-xl border border-gray-800">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-gray-800">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-400">Name</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-400">Nick</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-400">#</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-400">Pos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {csvRows.map((row, i) => (
+                    <tr key={i} className="border-t border-gray-800">
+                      <td className="px-3 py-2 text-white">{row.name}</td>
+                      <td className="px-3 py-2 text-gray-400">{row.nickname || '—'}</td>
+                      <td className="px-3 py-2 text-gray-400">{row.number || '—'}</td>
+                      <td className="px-3 py-2 text-gray-400">{row.position || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={() => { setShowCsvImport(false); setCsvRows([]) }}
+                disabled={csvImporting}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCsvImport}
+                disabled={csvImporting}
+                className="btn-primary flex-1"
+              >
+                {csvImporting ? 'Importing…' : `Add ${csvRows.length} Players`}
+              </button>
+            </div>
           </div>
         </div>
       )}

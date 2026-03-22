@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
   getClub, getPlayers, subscribeToTeamGames, subscribeToUser,
-  followClub, unfollowClub, getGamePlays,
+  followClub, unfollowClub, getGamePlays, followPlayer, unfollowPlayer,
 } from '../firebase/firestore'
 import { formatDate, nickDisplay } from '../lib/formatters'
 import {
@@ -333,6 +333,7 @@ export default function TeamPage() {
         {activeTab === 'stats' && (
           <SeasonStatsPanel
             club={club}
+            clubId={clubId}
             games={games}
             isBaseball={isBaseball}
             seasonStats={seasonStats}
@@ -347,30 +348,56 @@ export default function TeamPage() {
               <p className="py-12 text-center text-sm text-gray-500">No roster published yet.</p>
             )}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {players.map((p) => (
-                <div key={p.id} className="flex items-center gap-3 rounded-xl bg-gray-900 px-4 py-3">
-                  {p.photoUrl ? (
-                    <img src={p.photoUrl} alt={p.name} className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-gray-700" />
-                  ) : (
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-900/50 font-extrabold text-blue-300">
-                      {p.number || '—'}
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    {p.nickname ? (
-                      <>
-                        <p className="truncate font-bold text-white">"{p.nickname}"</p>
-                        <p className="truncate text-xs text-gray-400">{p.name}{p.position ? ` · ${p.position}` : ''}</p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="truncate font-semibold text-white">{p.name}</p>
-                        {p.position && <p className="text-xs text-gray-500">{p.position}</p>}
-                      </>
-                    )}
+              {players.map((p) => {
+                const pIsFollowing = userDoc?.followedPlayers?.some((fp) => fp.playerId === p.id) ?? false
+                return (
+                  <div key={p.id} className="flex items-center gap-3 rounded-xl bg-gray-900 px-4 py-3">
+                    <Link to={`/player/${clubId}/${p.id}`} className="shrink-0">
+                      {p.photoUrl ? (
+                        <img src={p.photoUrl} alt={p.name} className="h-10 w-10 rounded-full object-cover ring-1 ring-gray-700 hover:ring-blue-500 transition" />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-900/50 font-extrabold text-blue-300 hover:bg-blue-800/60 transition">
+                          {p.number || '—'}
+                        </div>
+                      )}
+                    </Link>
+                    <Link to={`/player/${clubId}/${p.id}`} className="min-w-0 flex-1">
+                      {p.nickname ? (
+                        <>
+                          <p className="truncate font-bold text-white hover:text-blue-300 transition">"{p.nickname}"</p>
+                          <p className="truncate text-xs text-gray-400">{p.name}{p.position ? ` · ${p.position}` : ''}</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="truncate font-semibold text-white hover:text-blue-300 transition">{p.name}</p>
+                          {p.position && <p className="text-xs text-gray-500">{p.position}</p>}
+                        </>
+                      )}
+                    </Link>
+                    <button
+                      onClick={async () => {
+                        if (!user) { setShowSignInPrompt(true); return }
+                        if (pIsFollowing) {
+                          await unfollowPlayer(user.uid, p.id)
+                        } else {
+                          await followPlayer(user.uid, {
+                            playerId: p.id, clubId, name: p.name, nickname: p.nickname || '',
+                            number: p.number || '', photoUrl: p.photoUrl || '',
+                            position: p.position || '', clubName: club.name, clubSport: club.sport,
+                          })
+                        }
+                      }}
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold transition ${
+                        pIsFollowing
+                          ? 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                          : 'bg-blue-900/50 text-blue-300 hover:bg-blue-800'
+                      }`}
+                    >
+                      {pIsFollowing ? '✓' : '+ Follow'}
+                    </button>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
@@ -399,7 +426,7 @@ export default function TeamPage() {
 
 // ── Season Stats Panel ────────────────────────────────────────────────────────
 
-function SeasonStatsPanel({ club, games, isBaseball, seasonStats, loadingStats }) {
+function SeasonStatsPanel({ club, clubId, games, isBaseball, seasonStats, loadingStats }) {
   const finalCount = games.filter((g) => g.status === 'final').length
 
   if (!finalCount) {
@@ -448,7 +475,11 @@ function SeasonStatsPanel({ club, games, isBaseball, seasonStats, loadingStats }
               {sorted.map((s) => (
                 <tr key={s.id || s.name} className="border-t border-gray-800 text-white">
                   <td className="px-3 py-2 font-mono text-gray-400">{s.number || '—'}</td>
-                  <td className="whitespace-nowrap px-2 py-2 font-medium">{s.name}</td>
+                  <td className="whitespace-nowrap px-2 py-2 font-medium">
+                    {s.id ? (
+                      <Link to={`/player/${clubId}/${s.id}`} className="hover:text-blue-300 transition">{s.name}</Link>
+                    ) : s.name}
+                  </td>
                   <td className="px-2 py-2 text-center text-gray-500">{s.gp}</td>
                   <td className="px-2 py-2 text-center text-gray-400">{s.ab}</td>
                   <td className="px-2 py-2 text-center font-bold">{s.h}</td>
@@ -521,7 +552,11 @@ function SeasonStatsPanel({ club, games, isBaseball, seasonStats, loadingStats }
             {sorted.map((s) => (
               <tr key={s.id || s.name} className="border-t border-gray-800 text-white">
                 <td className="px-3 py-2 font-mono text-gray-400">{s.number || '—'}</td>
-                <td className="whitespace-nowrap px-2 py-2 font-medium">{s.name}</td>
+                <td className="whitespace-nowrap px-2 py-2 font-medium">
+                  {s.id ? (
+                    <Link to={`/player/${clubId}/${s.id}`} className="hover:text-blue-300 transition">{s.name}</Link>
+                  ) : s.name}
+                </td>
                 <td className="px-2 py-2 text-center text-gray-500">{s.gp}</td>
                 <td className="px-2 py-2 text-center font-extrabold text-blue-400">{s.pts}</td>
                 <td className="px-2 py-2 text-center text-gray-400">{s.reb}</td>

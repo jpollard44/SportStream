@@ -123,6 +123,27 @@ export async function getPlayers(clubId) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
+export async function getPlayer(clubId, playerId) {
+  const snap = await getDoc(doc(db, 'clubs', clubId, 'players', playerId))
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null
+}
+
+// followedPlayers on users/{uid}: array of {playerId, clubId, name, nickname, number, photoUrl, position, clubName, clubSport}
+export async function followPlayer(uid, playerInfo) {
+  const userRef = doc(db, 'users', uid)
+  const snap = await getDoc(userRef)
+  const current = snap.data()?.followedPlayers || []
+  const filtered = current.filter((p) => p.playerId !== playerInfo.playerId)
+  await updateDoc(userRef, { followedPlayers: [...filtered, playerInfo] })
+}
+
+export async function unfollowPlayer(uid, playerId) {
+  const userRef = doc(db, 'users', uid)
+  const snap = await getDoc(userRef)
+  const current = snap.data()?.followedPlayers || []
+  await updateDoc(userRef, { followedPlayers: current.filter((p) => p.playerId !== playerId) })
+}
+
 // ─── Games ───────────────────────────────────────────────────────────────────
 
 export async function createGame(clubId, {

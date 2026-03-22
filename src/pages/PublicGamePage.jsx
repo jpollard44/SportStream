@@ -7,7 +7,9 @@ import {
   describeBaseballPlay,
 } from '../lib/baseballHelpers'
 import { describePlay } from '../lib/playEventHelpers'
-import { getPlayerHistoricalPlays } from '../firebase/firestore'
+import { getPlayerHistoricalPlays, subscribeToUser } from '../firebase/firestore'
+import { NOTABLE_PLAY_TYPES, getNotablePlayLabel } from '../lib/premium'
+import { useAuth } from '../context/AuthContext'
 import StreamViewer from '../components/public/StreamViewer'
 import BaseDiamond from '../components/scorekeeper/baseball/BaseDiamond'
 
@@ -145,13 +147,40 @@ function shortName(name) {
 export default function PublicGamePage() {
   const { gameId } = useParams()
   const { game, plays, loading } = useGame(gameId)
+  const { user } = useAuth()
   const [tab, setTab] = useState('score')
   const [selectedTeam, setSelectedTeam] = useState(null)
+  const [followedPlayers, setFollowedPlayers] = useState([])
+  const [followAlert, setFollowAlert] = useState(null) // { name, label }
+  const seenPlayIds = useRef(new Set())
 
   function goToTeamStats(team) {
     setSelectedTeam(team)
     setTab('stats')
   }
+
+  // Subscribe to user's followed players
+  useEffect(() => {
+    if (!user) return
+    return subscribeToUser(user.uid, (u) => setFollowedPlayers(u?.followedPlayers || []))
+  }, [user])
+
+  // Detect notable plays from followed players
+  useEffect(() => {
+    if (!plays.length || !followedPlayers.length) return
+    const followedIds = new Set(followedPlayers.map((fp) => fp.playerId))
+    for (const play of plays) {
+      if (seenPlayIds.current.has(play.id)) continue
+      seenPlayIds.current.add(play.id)
+      if (play.playerId && followedIds.has(play.playerId) && NOTABLE_PLAY_TYPES.has(play.type)) {
+        const label = getNotablePlayLabel(play.type, game?.sport)
+        if (label) {
+          setFollowAlert({ name: play.playerName, label })
+          setTimeout(() => setFollowAlert(null), 5000)
+        }
+      }
+    }
+  }, [plays, followedPlayers, game?.sport])
 
   // Local ticking clock for basketball viewer
   const [localSeconds, setLocalSeconds] = useState(0)
@@ -210,6 +239,20 @@ export default function PublicGamePage() {
 
   return (
     <div className="min-h-screen bg-gray-950 pb-10">
+      {/* Follow alert */}
+      {followAlert && (
+        <div className="fixed top-4 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 px-4">
+          <div className="flex items-center gap-3 rounded-2xl bg-gray-900 p-4 shadow-xl ring-1 ring-yellow-600/60">
+            <span className="text-xl">{followAlert.label.split(' ')[0]}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-white">{followAlert.name}</p>
+              <p className="text-xs text-yellow-300">{followAlert.label}</p>
+            </div>
+            <button onClick={() => setFollowAlert(null)} className="text-gray-600 hover:text-white">✕</button>
+          </div>
+        </div>
+      )}
+
       {/* Back navigation */}
       <div className="flex items-center gap-4 overflow-x-auto border-b border-gray-800/50 bg-gray-950 px-4 py-2">
         <Link to="/" className="flex-shrink-0 text-xs text-gray-500 hover:text-gray-300">← Home</Link>
@@ -281,7 +324,7 @@ export default function PublicGamePage() {
       {/* Tab content */}
       {tab === 'score'   && <ScoreTab   game={game} plays={plays} isBaseball={isBaseball} />}
       {tab === 'plays'   && <PlaysTab   plays={plays} game={game} isBaseball={isBaseball} />}
-      {tab === 'stats'   && <StatsTab   plays={plays} game={game} isBaseball={isBaseball} selectedTeam={selectedTeam} setSelectedTeam={setSelectedTeam} />}
+      {tab === 'stats'   && <StatsTab   plays={plays} game={game} isBaseball={isBaseball} selectedTeam={selectedTeam} setSelectedTeam={setSelectedTeam} followedPlayers={followedPlayers} />}
       {tab === 'lineups' && <LineupsTab game={game} plays={plays} isBaseball={isBaseball} />}
 
       {/* Footer */}
@@ -827,21 +870,22 @@ function PlayRow({ play, isBaseball }) {
 
 // ── Stats tab ─────────────────────────────────────────────────────────────────
 
-function StatsTab({ plays, game, isBaseball, selectedTeam, setSelectedTeam }) {
+function StatsTab({ plays, game, isBaseball, selectedTeam, setSelectedTeam, followedPlayers }) {
   if (!plays.length) {
     return <div className="py-16 text-center text-sm text-gray-500">No stats yet — game hasn't started.</div>
   }
-  if (isBaseball) return <BaseballStatsTab plays={plays} game={game} selectedTeam={selectedTeam} setSelectedTeam={setSelectedTeam} />
-  return <BasketballStatsTab plays={plays} game={game} selectedTeam={selectedTeam} setSelectedTeam={setSelectedTeam} />
+  if (isBaseball) return <BaseballStatsTab plays={plays} game={game} selectedTeam={selectedTeam} setSelectedTeam={setSelectedTeam} followedPlayers={followedPlayers} />
+  return <BasketballStatsTab plays={plays} game={game} selectedTeam={selectedTeam} setSelectedTeam={setSelectedTeam} followedPlayers={followedPlayers} />
 }
 
-function BaseballStatsTab({ plays, game, selectedTeam, setSelectedTeam }) {
+function BaseballStatsTab({ plays, game, selectedTeam, setSelectedTeam, followedPlayers }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const activeTeam = selectedTeam || 'home'
 
   const stats = computeBaseballStats(plays)
   const home  = Object.values(stats).filter((s) => s.team === 'home')
   const away  = Object.values(stats).filter((s) => s.team === 'away')
+  const followedIds = new Set((followedPlayers || []).map((fp) => fp.playerId))
 
   const homeH = home.reduce((acc, s) => acc + s.h, 0)
   const awayH = away.reduce((acc, s) => acc + s.h, 0)
@@ -918,23 +962,37 @@ function BaseballStatsTab({ plays, game, selectedTeam, setSelectedTeam }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((s) => (
-                <tr
-                  key={s.id || s.name}
-                  onClick={() => setSelectedPlayer(s)}
-                  className="cursor-pointer border-t border-gray-800 text-white transition hover:bg-gray-800/60"
-                >
-                  <td className="px-3 py-2 font-mono text-gray-400">{s.number || '—'}</td>
-                  <td className="whitespace-nowrap px-2 py-2 font-medium">{s.name}</td>
-                  <td className="px-2 py-2 text-center text-gray-400">{s.ab}</td>
-                  <td className="px-2 py-2 text-center font-bold">{s.h}</td>
-                  <td className="px-2 py-2 text-center text-gray-400">{s.hr || 0}</td>
-                  <td className="px-2 py-2 text-center text-gray-400">{s.rbi}</td>
-                  <td className="px-2 py-2 text-center text-gray-400">{s.bb}</td>
-                  <td className="px-2 py-2 text-center text-gray-400">{s.k}</td>
-                  <td className="px-2 py-2 text-center font-mono text-blue-400">{avg(s.h, s.ab)}</td>
-                </tr>
-              ))}
+              {rows.map((s) => {
+                const clubId = activeTeam === 'home' ? game.clubId : game.awayClubId
+                const isFollowed = followedIds.has(s.id)
+                return (
+                  <tr
+                    key={s.id || s.name}
+                    onClick={() => setSelectedPlayer(s)}
+                    className="cursor-pointer border-t border-gray-800 text-white transition hover:bg-gray-800/60"
+                  >
+                    <td className="px-3 py-2 font-mono text-gray-400">{s.number || '—'}</td>
+                    <td className="whitespace-nowrap px-2 py-2 font-medium">
+                      {clubId && s.id ? (
+                        <Link
+                          to={`/player/${clubId}/${s.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`hover:underline ${isFollowed ? 'text-yellow-300' : 'text-white'}`}
+                        >
+                          {s.name}
+                        </Link>
+                      ) : s.name}
+                    </td>
+                    <td className="px-2 py-2 text-center text-gray-400">{s.ab}</td>
+                    <td className="px-2 py-2 text-center font-bold">{s.h}</td>
+                    <td className="px-2 py-2 text-center text-gray-400">{s.hr || 0}</td>
+                    <td className="px-2 py-2 text-center text-gray-400">{s.rbi}</td>
+                    <td className="px-2 py-2 text-center text-gray-400">{s.bb}</td>
+                    <td className="px-2 py-2 text-center text-gray-400">{s.k}</td>
+                    <td className="px-2 py-2 text-center font-mono text-blue-400">{avg(s.h, s.ab)}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -954,7 +1012,7 @@ function BaseballStatsTab({ plays, game, selectedTeam, setSelectedTeam }) {
   )
 }
 
-function BasketballStatsTab({ plays, game, selectedTeam, setSelectedTeam }) {
+function BasketballStatsTab({ plays, game, selectedTeam, setSelectedTeam, followedPlayers }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const activeTeam = selectedTeam || 'home'
 
@@ -963,6 +1021,7 @@ function BasketballStatsTab({ plays, game, selectedTeam, setSelectedTeam }) {
   const away  = Object.values(stats).filter((s) => s.team === 'away').sort((a, b) => b.pts - a.pts)
 
   const rows = activeTeam === 'home' ? home : away
+  const followedIds = new Set((followedPlayers || []).map((fp) => fp.playerId))
   const playerPlays = selectedPlayer ? plays.filter((p) => p.playerId === selectedPlayer.id) : []
 
   return (
@@ -1001,22 +1060,36 @@ function BasketballStatsTab({ plays, game, selectedTeam, setSelectedTeam }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((s) => (
-                <tr
-                  key={s.id || s.name}
-                  onClick={() => setSelectedPlayer(s)}
-                  className="cursor-pointer border-t border-gray-800 text-white transition hover:bg-gray-800/60"
-                >
-                  <td className="px-3 py-2 font-mono text-gray-400">{s.number || '—'}</td>
-                  <td className="whitespace-nowrap px-2 py-2 font-medium">{s.name}</td>
-                  <td className="px-2 py-2 text-center font-extrabold text-blue-400">{s.pts}</td>
-                  <td className="px-2 py-2 text-center text-gray-400">{s.reb}</td>
-                  <td className="px-2 py-2 text-center text-gray-400">{s.ast}</td>
-                  <td className="px-2 py-2 text-center text-gray-400">{s.stl}</td>
-                  <td className="px-2 py-2 text-center text-gray-400">{s.blk}</td>
-                  <td className="px-2 py-2 text-center text-gray-400">{s.foul}</td>
-                </tr>
-              ))}
+              {rows.map((s) => {
+                const clubId = activeTeam === 'home' ? game.clubId : game.awayClubId
+                const isFollowed = followedIds.has(s.id)
+                return (
+                  <tr
+                    key={s.id || s.name}
+                    onClick={() => setSelectedPlayer(s)}
+                    className="cursor-pointer border-t border-gray-800 text-white transition hover:bg-gray-800/60"
+                  >
+                    <td className="px-3 py-2 font-mono text-gray-400">{s.number || '—'}</td>
+                    <td className="whitespace-nowrap px-2 py-2 font-medium">
+                      {clubId && s.id ? (
+                        <Link
+                          to={`/player/${clubId}/${s.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`hover:underline ${isFollowed ? 'text-yellow-300' : 'text-white'}`}
+                        >
+                          {s.name}
+                        </Link>
+                      ) : s.name}
+                    </td>
+                    <td className="px-2 py-2 text-center font-extrabold text-blue-400">{s.pts}</td>
+                    <td className="px-2 py-2 text-center text-gray-400">{s.reb}</td>
+                    <td className="px-2 py-2 text-center text-gray-400">{s.ast}</td>
+                    <td className="px-2 py-2 text-center text-gray-400">{s.stl}</td>
+                    <td className="px-2 py-2 text-center text-gray-400">{s.blk}</td>
+                    <td className="px-2 py-2 text-center text-gray-400">{s.foul}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

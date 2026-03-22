@@ -15,6 +15,7 @@ import CreateTournamentPage from './pages/CreateTournamentPage'
 import TournamentPage from './pages/TournamentPage'
 import TournamentJoinPage from './pages/TournamentJoinPage'
 import TeamPage from './pages/TeamPage'
+import PlayerPage from './pages/PlayerPage'
 import LeaguesPage from './pages/LeaguesPage'
 import CreateLeaguePage from './pages/CreateLeaguePage'
 import LeaguePage from './pages/LeaguePage'
@@ -66,6 +67,7 @@ export default function App() {
         {/* Public routes — no auth required */}
         <Route path="/game/:gameId" element={<PublicGamePage />} />
         <Route path="/team/:clubId" element={<TeamPage />} />
+        <Route path="/player/:clubId/:playerId" element={<PlayerPage />} />
         <Route path="/tournaments" element={<TournamentsPage />} />
         <Route path="/tournament/:tourId" element={<TournamentPage />} />
         <Route path="/tournament/:tourId/join" element={<TournamentJoinPage />} />
