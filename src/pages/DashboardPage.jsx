@@ -140,26 +140,25 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-950">
+    <div className="flex min-h-screen flex-col bg-[#0f1117]">
       {/* Header */}
-      <header className="flex items-center justify-between px-5 pt-5 pb-2">
+      <header className="flex items-center justify-between border-b border-white/5 px-5 py-3 safe-top">
         <h1 className="text-xl font-extrabold tracking-tight text-white">
           Sport<span className="text-blue-500">Stream</span>
         </h1>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Link
             to="/settings"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-800 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1a1f2e] text-sm text-gray-400 ring-1 ring-white/5 hover:ring-white/10 hover:text-white transition"
+            title="Settings"
           >
             ⚙
           </Link>
-          <button onClick={logout} className="text-xs text-gray-500 hover:text-white transition">
-            Sign out
-          </button>
         </div>
       </header>
 
-      <div className="px-5 pb-3">
+      {/* Role-aware greeting */}
+      <div className="px-5 py-3 border-b border-white/5">
         <p className="text-sm text-gray-400">
           Welcome back, <span className="font-semibold text-white">{user?.displayName || user?.email?.split('@')[0]}</span>
         </p>
@@ -172,26 +171,31 @@ export default function DashboardPage() {
         {tab === 'following' && <FollowingTab {...sharedProps} />}
       </div>
 
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-gray-800/80 bg-gray-950/95 backdrop-blur">
+      {/* Dashboard-internal tab nav (above the global bottom nav) */}
+      <div className="fixed bottom-16 left-0 right-0 z-30 sm:bottom-0 flex border-t border-white/5"
+        style={{ background: 'rgba(15,17,23,0.95)', backdropFilter: 'blur(16px)' }}
+      >
         {[
-          { id: 'home',      label: 'Home',      icon: '⊞' },
-          { id: 'clubs',     label: 'My Teams',  icon: '🏟' },
-          { id: 'events',    label: 'Events',    icon: '🏆' },
-          { id: 'following', label: 'My Fans', icon: '❤' },
+          { id: 'home',      label: 'Home',     icon: '⊞' },
+          { id: 'clubs',     label: 'My Teams', icon: '🏟' },
+          { id: 'events',    label: 'Events',   icon: '🏆' },
+          { id: 'following', label: 'Following', icon: '⭐' },
         ].map(({ id, label, icon }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-3 text-[10px] font-semibold transition ${
+            className={`relative flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold transition ${
               tab === id ? 'text-blue-400' : 'text-gray-600 hover:text-gray-400'
             }`}
           >
-            <span className="text-lg leading-none">{icon}</span>
+            <span className="text-base leading-none">{icon}</span>
             {label}
+            {tab === id && (
+              <span className="absolute top-0 left-1/4 right-1/4 h-0.5 rounded-full bg-blue-500" />
+            )}
           </button>
         ))}
-      </nav>
+      </div>
 
       {/* Create team modal */}
       {showCreate && (

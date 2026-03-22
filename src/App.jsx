@@ -22,7 +22,9 @@ import CreateLeaguePage from './pages/CreateLeaguePage'
 import LeaguePage from './pages/LeaguePage'
 import LeagueJoinPage from './pages/LeagueJoinPage'
 import FanProfilePage from './pages/FanProfilePage'
+import RolePickerPage from './pages/RolePickerPage'
 import ProtectedRoute from './components/auth/ProtectedRoute'
+import BottomNav from './components/layout/BottomNav'
 
 export default function App() {
   const { toast, dismissToast } = useNotifications()
@@ -31,8 +33,8 @@ export default function App() {
     <>
       {/* Foreground push notification toast */}
       {toast && (
-        <div className="fixed top-4 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 px-4">
-          <div className="flex items-start gap-3 rounded-2xl bg-gray-900 p-4 shadow-xl ring-1 ring-red-800/60">
+        <div className="fixed top-4 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 px-4 animate-slideDown">
+          <div className="flex items-start gap-3 rounded-2xl bg-[#1a1f2e] p-4 shadow-2xl ring-1 ring-red-800/40">
             <span className="mt-0.5 h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-white">{toast.title}</p>
@@ -44,10 +46,13 @@ export default function App() {
                 </Link>
               )}
             </div>
-            <button onClick={dismissToast} className="text-gray-600 hover:text-white">✕</button>
+            <button onClick={dismissToast} className="text-gray-500 hover:text-white transition">✕</button>
           </div>
         </div>
       )}
+
+      {/* Mobile bottom nav (role-aware, hides on scorekeeper/game pages) */}
+      <BottomNav />
 
       <Routes>
         <Route path="/" element={<LandingPage />} />
@@ -64,6 +69,7 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/tournament/new" element={<CreateTournamentPage />} />
           <Route path="/league/new" element={<CreateLeaguePage />} />
+          <Route path="/onboarding" element={<RolePickerPage />} />
         </Route>
 
         {/* Public routes — no auth required */}

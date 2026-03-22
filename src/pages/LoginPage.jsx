@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { loginWithEmail, registerWithEmail, loginWithGoogle } from '../firebase/auth'
 import { useAuth } from '../context/AuthContext'
+import { getUser } from '../firebase/firestore'
 
 export default function LoginPage() {
   const { user } = useAuth()
@@ -29,10 +30,12 @@ export default function LoginPage() {
     try {
       if (mode === 'register') {
         await registerWithEmail(email, password, displayName)
+        // New users → role picker
+        navigate('/onboarding', { replace: true, state: { from } })
       } else {
         await loginWithEmail(email, password)
+        navigate(from, { replace: true })
       }
-      navigate(from, { replace: true })
     } catch (err) {
       setError(friendlyError(err.code))
     } finally {
@@ -44,8 +47,14 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      await loginWithGoogle()
-      navigate(from, { replace: true })
+      const googleUser = await loginWithGoogle()
+      // Check if this user has selected a role yet
+      const userData = await getUser(googleUser.uid).catch(() => null)
+      if (!userData?.role) {
+        navigate('/onboarding', { replace: true, state: { from } })
+      } else {
+        navigate(from, { replace: true })
+      }
     } catch (err) {
       setError(friendlyError(err.code))
     } finally {
@@ -54,21 +63,60 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 px-4">
-      <Link to="/" className="mb-8 text-2xl font-extrabold tracking-tight text-white">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-[#0f1117] px-4">
+      {/* Background glow */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div className="h-[500px] w-[500px] rounded-full bg-blue-600/8 blur-[120px]" />
+      </div>
+
+      <Link to="/" className="relative mb-8 text-2xl font-extrabold tracking-tight text-white">
         Sport<span className="text-blue-500">Stream</span>
       </Link>
 
-      <div className="w-full max-w-sm rounded-2xl bg-gray-900 p-8 shadow-xl">
-        <h1 className="mb-6 text-center text-xl font-bold text-white">
-          {mode === 'login' ? 'Sign in to your account' : 'Create your account'}
-        </h1>
+      <div className="relative w-full max-w-sm rounded-2xl bg-[#1a1f2e] p-8 ring-1 ring-white/10 shadow-2xl shadow-black/50 animate-slideUp">
+        {/* Mode toggle pills */}
+        <div className="mb-6 flex rounded-xl bg-[#0f1117] p-1">
+          <button
+            onClick={() => setMode('login')}
+            className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
+              mode === 'login' ? 'bg-[#1a1f2e] text-white shadow' : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            Sign in
+          </button>
+          <button
+            onClick={() => setMode('register')}
+            className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
+              mode === 'register' ? 'bg-[#1a1f2e] text-white shadow' : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            Create account
+          </button>
+        </div>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-900/40 px-4 py-3 text-sm text-red-300">{error}</div>
+          <div className="mb-4 animate-shake rounded-xl bg-red-900/40 px-4 py-3 text-sm text-red-300 ring-1 ring-red-800/40">
+            {error}
+          </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {/* Google button — prominent */}
+        <button
+          onClick={handleGoogle}
+          disabled={loading}
+          className="mb-4 flex w-full items-center justify-center gap-3 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow transition hover:bg-gray-50 active:scale-95 disabled:opacity-50"
+        >
+          <GoogleIcon />
+          Continue with Google
+        </button>
+
+        <div className="my-4 flex items-center gap-3">
+          <div className="h-px flex-1 bg-white/5" />
+          <span className="text-xs text-gray-600">or</span>
+          <div className="h-px flex-1 bg-white/5" />
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {mode === 'register' && (
             <input
               type="text"
@@ -77,11 +125,12 @@ export default function LoginPage() {
               onChange={(e) => setDisplayName(e.target.value)}
               required
               className="input"
+              autoFocus
             />
           )}
           <input
             type="email"
-            placeholder="Email"
+            placeholder="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -96,39 +145,20 @@ export default function LoginPage() {
             minLength={6}
             className="input"
           />
-          <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? 'Loading…' : mode === 'login' ? 'Sign In' : 'Create Account'}
+          <button type="submit" disabled={loading} className="btn-primary mt-1">
+            {loading
+              ? 'Loading…'
+              : mode === 'login'
+              ? 'Sign In'
+              : 'Create Account →'}
           </button>
         </form>
 
-        <div className="my-4 flex items-center gap-3">
-          <div className="h-px flex-1 bg-gray-700" />
-          <span className="text-xs text-gray-500">or</span>
-          <div className="h-px flex-1 bg-gray-700" />
-        </div>
-
-        <button onClick={handleGoogle} disabled={loading} className="btn-secondary flex w-full items-center justify-center gap-2">
-          <GoogleIcon />
-          Continue with Google
-        </button>
-
-        <p className="mt-6 text-center text-sm text-gray-400">
-          {mode === 'login' ? (
-            <>
-              No account?{' '}
-              <button onClick={() => setMode('register')} className="text-blue-400 underline">
-                Sign up
-              </button>
-            </>
-          ) : (
-            <>
-              Already have one?{' '}
-              <button onClick={() => setMode('login')} className="text-blue-400 underline">
-                Sign in
-              </button>
-            </>
-          )}
-        </p>
+        {mode === 'register' && (
+          <p className="mt-4 text-center text-xs text-gray-600">
+            By creating an account you agree to our terms. Free forever for basic use.
+          </p>
+        )}
       </div>
     </div>
   )
@@ -158,6 +188,6 @@ function friendlyError(code) {
     case 'auth/popup-closed-by-user':
       return 'Sign-in cancelled.'
     default:
-      return 'Something went wrong. Please try again.'
+      return 'Something went wrong — please try again.'
   }
 }
