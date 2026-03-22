@@ -6,6 +6,7 @@ import {
   subscribeToClubGames, subscribeToClubSchedule,
   createScheduledGame, updateGame, deleteGame, markGameFinal, createInvite,
   getClubFanCount, getClubContextOpponents, searchClubs,
+  getHeadToHead, getRecentResults, getClubRecord,
 } from '../firebase/firestore'
 import { uploadClubLogo, uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate } from '../lib/formatters'
@@ -307,6 +308,7 @@ export default function ClubPage() {
           ) : (
             <ScheduleList
               schedule={schedule}
+              clubId={clubId}
               onEdit={(g) => setEditingScheduleGame(g)}
               onDelete={async (id) => {
                 if (confirm('Remove this scheduled game?')) await deleteGame(id)
@@ -790,17 +792,116 @@ function StatusBadge({ status }) {
 
 // ── Schedule List ─────────────────────────────────────────────────────────────
 
-function ScheduleList({ schedule, onEdit, onDelete }) {
+function fmtScheduledFull(iso) {
+  if (!iso) return 'No date set'
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
+    ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
+function CountdownBadge({ iso }) {
+  const ms = new Date(iso).getTime() - Date.now()
+  if (ms < 0 || ms > 24 * 60 * 60 * 1000) return null
+  const h = Math.floor(ms / 3600000)
+  const m = Math.floor((ms % 3600000) / 60000)
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-orange-900/50 px-2 py-0.5 text-[10px] font-bold text-orange-300">
+      ⏱ {h > 0 ? `${h}h ${m}m` : `${m}m`} away
+    </span>
+  )
+}
+
+function WLDots({ results }) {
+  if (!results?.length) return null
+  return (
+    <div className="flex items-center gap-1">
+      {results.map((r, i) => (
+        <span key={i} title={r.win ? 'Win' : 'Loss'}
+          className={`h-2.5 w-2.5 rounded-full ${r.win ? 'bg-green-400' : 'bg-red-500'}`} />
+      ))}
+    </div>
+  )
+}
+
+function GamePreviewCard({ game, clubId, onEdit, onDelete }) {
+  const [homeRecord, setHomeRecord] = useState(null)
+  const [awayRecord, setAwayRecord] = useState(null)
+  const [homeResults, setHomeResults] = useState([])
+  const [awayResults, setAwayResults] = useState([])
+  const [h2h, setH2h] = useState(null)
+
+  useEffect(() => {
+    getClubRecord(clubId).then(setHomeRecord).catch(() => {})
+    getRecentResults(clubId).then(setHomeResults).catch(() => {})
+    if (game.awayClubId) {
+      getClubRecord(game.awayClubId).then(setAwayRecord).catch(() => {})
+      getRecentResults(game.awayClubId).then(setAwayResults).catch(() => {})
+      getHeadToHead(clubId, game.awayClubId).then(setH2h).catch(() => {})
+    }
+  }, [game.id, clubId, game.awayClubId])
+
+  const h2hLabel = h2h && h2h.total > 0
+    ? h2h.w1 > h2h.w2 ? `You lead ${h2h.w1}–${h2h.w2}`
+      : h2h.w2 > h2h.w1 ? `They lead ${h2h.w2}–${h2h.w1}`
+      : `${h2h.w1}–${h2h.w2} all time`
+    : null
+
+  return (
+    <div className="rounded-2xl bg-[#1a1f2e] ring-1 ring-white/5 overflow-hidden">
+      {/* Header row */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-indigo-400">{fmtScheduledFull(game.scheduledAt)}</span>
+          {game.scheduledAt && <CountdownBadge iso={game.scheduledAt} />}
+        </div>
+        <span className="text-lg">☀️</span>
+      </div>
+
+      {/* Teams + records */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-white text-sm truncate">{game.homeTeam}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            {homeRecord && <span className="text-[11px] text-gray-400">{homeRecord.w}-{homeRecord.l}</span>}
+            <WLDots results={homeResults} />
+          </div>
+        </div>
+        <div className="mx-3 text-center">
+          <span className="text-xs font-semibold text-gray-600">VS</span>
+        </div>
+        <div className="flex-1 min-w-0 text-right">
+          <p className="font-bold text-white text-sm truncate">{game.awayTeam}</p>
+          <div className="flex items-center justify-end gap-2 mt-0.5">
+            {awayRecord && <span className="text-[11px] text-gray-400">{awayRecord.w}-{awayRecord.l}</span>}
+            <WLDots results={awayResults} />
+          </div>
+        </div>
+      </div>
+
+      {/* Meta row */}
+      <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
+        {game.venue && <span className="text-[11px] text-gray-500">📍 {game.venue}</span>}
+        {game.gameType && game.gameType !== 'regular' && (
+          <span className="rounded-full bg-gray-800 px-2 py-0.5 text-[10px] capitalize text-gray-400">{game.gameType}</span>
+        )}
+        {h2hLabel && (
+          <span className="text-[11px] font-semibold text-yellow-500/80">H2H: {h2hLabel}</span>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center justify-end gap-3 border-t border-white/5 px-4 py-2">
+        <button onClick={() => onEdit(game)} className="text-xs text-gray-500 hover:text-blue-400">Edit</button>
+        <button onClick={() => onDelete(game.id)} className="text-xs text-gray-600 hover:text-red-400">Remove</button>
+      </div>
+    </div>
+  )
+}
+
+function ScheduleList({ schedule, clubId, onEdit, onDelete }) {
   const now = Date.now()
   const upcoming = schedule.filter((g) => !g.scheduledAt || new Date(g.scheduledAt).getTime() >= now)
   const past     = schedule.filter((g) => g.scheduledAt && new Date(g.scheduledAt).getTime() < now)
-
-  function fmtScheduled(iso) {
-    if (!iso) return 'No date set'
-    const d = new Date(iso)
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
-      ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-  }
 
   function GameRow({ game }) {
     return (
@@ -809,7 +910,7 @@ function ScheduleList({ schedule, onEdit, onDelete }) {
           <p className="truncate font-semibold text-white">
             {game.homeTeam} <span className="text-gray-500">vs</span> {game.awayTeam}
           </p>
-          <p className="text-xs text-indigo-400 mt-0.5">{fmtScheduled(game.scheduledAt)}</p>
+          <p className="text-xs text-indigo-400 mt-0.5">{fmtScheduledFull(game.scheduledAt)}</p>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             {game.venue && <span className="text-xs text-gray-500">📍 {game.venue}</span>}
             {game.gameType && game.gameType !== 'regular' && (
@@ -831,7 +932,11 @@ function ScheduleList({ schedule, onEdit, onDelete }) {
         <div>
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-indigo-500">Upcoming</p>
           <div className="flex flex-col gap-2">
-            {upcoming.map((g) => <GameRow key={g.id} game={g} />)}
+            {upcoming.map((g) =>
+              g.awayClubId
+                ? <GamePreviewCard key={g.id} game={g} clubId={clubId} onEdit={onEdit} onDelete={onDelete} />
+                : <GameRow key={g.id} game={g} />
+            )}
           </div>
         </div>
       )}

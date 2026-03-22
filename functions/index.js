@@ -633,8 +633,8 @@ exports.onGameLive = onDocumentUpdated('games/{gameId}', async (event) => {
     const response = await admin.messaging().sendEachForMulticast({
       tokens: allTokens,
       notification: {
-        title: `🔴 LIVE: ${home} vs ${away}`,
-        body:  `${sport.charAt(0).toUpperCase() + sport.slice(1)} is live — follow the score!`,
+        title: `🔴 Live Now!`,
+        body:  `${home} vs ${away} is live — tap to watch!`,
       },
       data:  { url: gameUrl },
       webpush: {

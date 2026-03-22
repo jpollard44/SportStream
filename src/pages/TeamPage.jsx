@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   getClub, getPlayers, subscribeToTeamGames, subscribeToUser,
   followClub, unfollowClub, getGamePlays, followPlayer, unfollowPlayer,
+  getHeadToHead, getRecentResults, getClubRecord,
 } from '../firebase/firestore'
 import { formatDate, nickDisplay } from '../lib/formatters'
 import {
@@ -31,6 +32,90 @@ function computeRecord(games, clubId) {
 const SPORT_EMOJI = {
   basketball: '🏀', baseball: '⚾', softball: '🥎',
   soccer: '⚽', volleyball: '🏐', 'flag-football': '🏈',
+}
+
+function WLDotsTP({ results }) {
+  if (!results?.length) return null
+  return (
+    <div className="flex items-center gap-1">
+      {results.map((r, i) => (
+        <span key={i} className={`h-2.5 w-2.5 rounded-full ${r.win ? 'bg-green-400' : 'bg-red-500'}`} />
+      ))}
+    </div>
+  )
+}
+
+function TeamPagePreviewCard({ game, clubId, oppClubId }) {
+  const [myRecord, setMyRecord] = useState(null)
+  const [oppRecord, setOppRecord] = useState(null)
+  const [myResults, setMyResults] = useState([])
+  const [oppResults, setOppResults] = useState([])
+  const [h2h, setH2h] = useState(null)
+
+  useEffect(() => {
+    getClubRecord(clubId).then(setMyRecord).catch(() => {})
+    getRecentResults(clubId).then(setMyResults).catch(() => {})
+    getClubRecord(oppClubId).then(setOppRecord).catch(() => {})
+    getRecentResults(oppClubId).then(setOppResults).catch(() => {})
+    getHeadToHead(clubId, oppClubId).then(setH2h).catch(() => {})
+  }, [clubId, oppClubId])
+
+  const isHome = game.clubId === clubId
+  const myTeam  = isHome ? game.homeTeam : game.awayTeam
+  const oppTeam = isHome ? game.awayTeam : game.homeTeam
+
+  const h2hLabel = h2h && h2h.total > 0
+    ? h2h.w1 > h2h.w2 ? `You lead ${h2h.w1}–${h2h.w2}`
+      : h2h.w2 > h2h.w1 ? `They lead ${h2h.w2}–${h2h.w1}`
+      : `${h2h.w1}–${h2h.w2} all time`
+    : null
+
+  const msUntil = game.scheduledAt ? new Date(game.scheduledAt).getTime() - Date.now() : null
+  const isWithin24h = msUntil !== null && msUntil > 0 && msUntil < 24 * 60 * 60 * 1000
+
+  return (
+    <Link to={`/game/${game.id}`} className="block rounded-2xl bg-[#1a1f2e] ring-1 ring-white/5 overflow-hidden hover:ring-white/10 transition">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-white/5">
+        <span className="text-xs font-semibold text-indigo-400">
+          {game.scheduledAt
+            ? new Date(game.scheduledAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
+              ' · ' + new Date(game.scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+            : 'Date TBD'}
+        </span>
+        <div className="flex items-center gap-2">
+          {isWithin24h && (
+            <span className="rounded-full bg-orange-900/50 px-2 py-0.5 text-[10px] font-bold text-orange-300">
+              ⏱ {Math.floor(msUntil / 3600000)}h away
+            </span>
+          )}
+          <span className="text-base">☀️</span>
+        </div>
+      </div>
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-white text-sm truncate">{myTeam}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            {myRecord && <span className="text-[11px] text-gray-400">{myRecord.w}-{myRecord.l}</span>}
+            <WLDotsTP results={myResults} />
+          </div>
+        </div>
+        <span className="mx-3 text-xs font-semibold text-gray-600">VS</span>
+        <div className="flex-1 min-w-0 text-right">
+          <p className="font-bold text-white text-sm truncate">{oppTeam}</p>
+          <div className="flex items-center justify-end gap-2 mt-0.5">
+            {oppRecord && <span className="text-[11px] text-gray-400">{oppRecord.w}-{oppRecord.l}</span>}
+            <WLDotsTP results={oppResults} />
+          </div>
+        </div>
+      </div>
+      {(game.venue || h2hLabel) && (
+        <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
+          {game.venue && <span className="text-[11px] text-gray-500">📍 {game.venue}</span>}
+          {h2hLabel && <span className="text-[11px] font-semibold text-yellow-500/80">H2H: {h2hLabel}</span>}
+        </div>
+      )}
+    </Link>
+  )
 }
 
 export default function TeamPage() {
@@ -303,7 +388,12 @@ export default function TeamPage() {
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Upcoming</p>
                 <div className="space-y-2">
                   {upcomingGames.map((g) => {
-                    const isHome   = g.clubId === clubId
+                    const isHome = g.clubId === clubId
+                    const myClubId = isHome ? g.clubId : g.awayClubId
+                    const oppClubId = isHome ? g.awayClubId : g.clubId
+                    if (myClubId && oppClubId) {
+                      return <TeamPagePreviewCard key={g.id} game={g} clubId={myClubId} oppClubId={oppClubId} />
+                    }
                     const opponent = isHome ? g.awayTeam : g.homeTeam
                     return (
                       <Link key={g.id} to={`/game/${g.id}`}
@@ -312,7 +402,10 @@ export default function TeamPage() {
                           <p className="truncate text-sm font-semibold text-white">
                             vs. <span className="text-gray-300">{opponent}</span>
                           </p>
-                          <p className="text-xs text-gray-500">{formatDate(g.createdAt)}</p>
+                          {g.scheduledAt
+                            ? <p className="text-xs text-indigo-400">{new Date(g.scheduledAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(g.scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
+                            : <p className="text-xs text-gray-500">{formatDate(g.createdAt)}</p>
+                          }
                         </div>
                         <span className="ml-4 shrink-0 rounded-full bg-gray-800 px-3 py-1 text-xs font-semibold text-gray-400">
                           Scheduled

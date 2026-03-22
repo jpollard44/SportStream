@@ -522,6 +522,54 @@ export async function getClubRecord(clubId) {
   return { w, l, str: `${w}-${l}` }
 }
 
+// Returns all-time head-to-head record between two clubs
+// { w1: wins for clubId1, w2: wins for clubId2, total }
+export async function getHeadToHead(clubId1, clubId2) {
+  if (!clubId1 || !clubId2) return { w1: 0, w2: 0, total: 0 }
+  const [snap1, snap2] = await Promise.all([
+    getDocs(query(collection(db, 'games'),
+      where('clubId', '==', clubId1), where('awayClubId', '==', clubId2))),
+    getDocs(query(collection(db, 'games'),
+      where('clubId', '==', clubId2), where('awayClubId', '==', clubId1))),
+  ])
+  let w1 = 0, w2 = 0
+  snap1.docs.forEach((d) => {
+    const g = d.data()
+    if (g.status !== 'final') return
+    if (g.homeScore > g.awayScore) w1++
+    else if (g.awayScore > g.homeScore) w2++
+  })
+  snap2.docs.forEach((d) => {
+    const g = d.data()
+    if (g.status !== 'final') return
+    if (g.homeScore > g.awayScore) w2++
+    else if (g.awayScore > g.homeScore) w1++
+  })
+  return { w1, w2, total: w1 + w2 }
+}
+
+// Returns last N final games for a club (home or away), most recent first
+export async function getRecentResults(clubId, n = 3) {
+  if (!clubId) return []
+  const [homeSnap, awaySnap] = await Promise.all([
+    getDocs(query(collection(db, 'games'), where('clubId', '==', clubId),
+      where('status', '==', 'final'), orderBy('createdAt', 'desc'), limit(n))),
+    getDocs(query(collection(db, 'games'), where('awayClubId', '==', clubId),
+      where('status', '==', 'final'), orderBy('createdAt', 'desc'), limit(n))),
+  ])
+  const all = [
+    ...homeSnap.docs.map((d) => {
+      const g = d.data()
+      return { date: g.createdAt?.toMillis?.() || 0, win: g.homeScore > g.awayScore }
+    }),
+    ...awaySnap.docs.map((d) => {
+      const g = d.data()
+      return { date: g.createdAt?.toMillis?.() || 0, win: g.awayScore > g.homeScore }
+    }),
+  ]
+  return all.sort((a, b) => b.date - a.date).slice(0, n)
+}
+
 // ─── Player Invites ──────────────────────────────────────────────────────────
 
 export async function createInvite(clubId, playerId, playerName, email) {
