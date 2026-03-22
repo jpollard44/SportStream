@@ -19,7 +19,7 @@ function getNavItems(roles = []) {
   if (r.includes('fan') && !r.includes('host') && !r.includes('manager')) {
     return [
       { to: '/dashboard',              label: 'Home',      Icon: HomeIcon },
-      { to: '/find',                   label: 'Discover',  Icon: SearchIcon },
+      { to: '/discover',               label: 'Discover',  Icon: SearchIcon },
       { to: '/dashboard?tab=following', label: 'Following', Icon: StarIcon },
       { to: '/wall-of-fame',           label: 'Fame',      Icon: FameIcon },
       { to: '/settings',               label: 'Profile',   Icon: ProfileIcon },
@@ -30,7 +30,7 @@ function getNavItems(roles = []) {
     return [
       { to: '/join',         label: 'Join Game', Icon: JoinIcon },
       { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
-      { to: '/find',         label: 'Find',      Icon: SearchIcon },
+      { to: '/discover',     label: 'Discover',  Icon: SearchIcon },
       { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
       { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
     ]
@@ -40,7 +40,7 @@ function getNavItems(roles = []) {
     return [
       { to: '/dashboard',           label: 'Home',    Icon: HomeIcon },
       { to: '/dashboard?tab=clubs', label: 'My Team', Icon: TeamIcon },
-      { to: '/find',                label: 'Find',    Icon: SearchIcon },
+      { to: '/discover',            label: 'Discover', Icon: SearchIcon },
       { to: '/wall-of-fame',        label: 'Fame',    Icon: FameIcon },
       { to: '/settings',            label: 'Profile', Icon: ProfileIcon },
     ]
@@ -90,7 +90,7 @@ export default function BottomNav() {
   function isActive(item) {
     if (item.to === '/settings')     return path === '/settings'
     if (item.to === '/join')         return path === '/join'
-    if (item.to === '/find')         return path === '/find'
+    if (item.to === '/discover')     return path === '/discover' || path === '/find'
     if (item.to === '/wall-of-fame') return path === '/wall-of-fame'
     if (item.to === '/tournaments')  return path.startsWith('/tournament') || path.startsWith('/league')
     if (item.to.startsWith('/dashboard')) {

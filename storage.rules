@@ -30,5 +30,12 @@ service firebase.storage {
       allow write: if request.auth != null
         && request.resource.size < 10 * 1024 * 1024;
     }
+
+    // Highlight video clips — up to 50 MB, authenticated users only
+    match /highlights/{highlightId}/clip.mp4 {
+      allow write: if request.auth != null
+        && request.resource.size < 50 * 1024 * 1024
+        && request.resource.contentType.matches('video/.*');
+    }
   }
 }

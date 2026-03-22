@@ -517,11 +517,16 @@ export default function ClubPage() {
                         {p.photoUrl ? (
                           <img src={p.photoUrl} alt={p.name} className="h-10 w-10 rounded-full object-cover ring-1 ring-gray-700 group-hover:ring-blue-500" />
                         ) : (
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-900 text-sm font-bold text-blue-200 ring-1 ring-transparent group-hover:ring-blue-500">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-900 ring-1 ring-transparent group-hover:ring-blue-500">
                             {playerPhotoUploading === p.id
                               ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
-                              : (p.number || '—')}
+                              : <span className="text-lg font-extrabold text-blue-300 leading-none">{p.number || '?'}</span>}
                           </div>
+                        )}
+                        {p.number && p.photoUrl && (
+                          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#0f1117] ring-1 ring-blue-700 text-[10px] font-extrabold text-blue-400">
+                            {p.number}
+                          </span>
                         )}
                         <span className="absolute -bottom-0.5 -right-0.5 hidden h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-600 text-[8px] text-white group-hover:flex">✏</span>
                       </button>

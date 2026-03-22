@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@stripe/stripe-js": "^8.11.0",
     "firebase": "^10.12.0",
     "idb": "^8.0.0",
     "peerjs": "^1.5.4",

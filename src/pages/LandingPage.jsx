@@ -133,6 +133,9 @@ export default function LandingPage() {
           <Link to="/find" className="hidden px-3 py-2 text-sm text-gray-400 transition hover:text-white sm:block">
             Find game
           </Link>
+          <Link to="/pricing" className="hidden px-3 py-2 text-sm text-gray-400 transition hover:text-white sm:block">
+            Pricing
+          </Link>
           {user ? (
             <Link to="/dashboard" className="ml-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold transition hover:bg-blue-500 active:scale-95">
               Dashboard →
@@ -430,6 +433,7 @@ export default function LandingPage() {
             <Link to="/tournaments" className="hover:text-gray-400 transition">Tournaments</Link>
             <Link to="/leagues" className="hover:text-gray-400 transition">Leagues</Link>
             <Link to="/find" className="hover:text-gray-400 transition">Find a game</Link>
+            <Link to="/pricing" className="hover:text-gray-400 transition">Pricing</Link>
             <Link to="/login" className="hover:text-gray-400 transition">Sign in</Link>
           </div>
           <p className="text-xs text-gray-700">© 2026 SportStream</p>

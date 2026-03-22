@@ -25,6 +25,7 @@ import {
 import { createGame, saveLineup, updateGame } from '../firebase/firestore'
 import { generateUniqueJoinCode } from '../lib/generateJoinCode'
 import BracketView from '../components/tournament/BracketView'
+import SponsorBanner from '../components/SponsorBanner'
 
 // ── Default game params by sport ──────────────────────────────────────────────
 function defaultGameParams(sport) {
@@ -327,6 +328,9 @@ export default function TournamentPage() {
           </div>
         )}
       </header>
+
+      {/* Sponsor banner */}
+      <SponsorBanner doc={tournament} isHost={user?.uid === tournament?.hostId} />
 
       {/* ── Tab bar ── */}
       <div className="sticky top-0 z-10 flex gap-1 border-b border-white/5 bg-[#0f1117] px-5">

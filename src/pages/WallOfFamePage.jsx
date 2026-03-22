@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { subscribeToUser } from '../firebase/firestore'
@@ -10,8 +10,11 @@ import {
   getUserReaction,
   toggleReaction,
   nominateHighlight,
+  uploadHighlightClip,
+  subscribeToComments,
+  addComment,
+  deleteComment,
 } from '../firebase/highlights'
-import { PageSpinner } from '../components/ui'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -61,15 +64,9 @@ function ReactionStrip({ highlight, uid, onSignInRequired }) {
     try {
       const next = await toggleReaction(highlight.id, uid, type)
       setMyReactions((prev) => ({ ...prev, [type]: next }))
-      setCounts((prev) => ({
-        ...prev,
-        [type]: (prev[type] || 0) + (next ? 1 : -1),
-      }))
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
+      setCounts((prev) => ({ ...prev, [type]: (prev[type] || 0) + (next ? 1 : -1) }))
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
   }
 
   return (
@@ -98,11 +95,383 @@ function ReactionStrip({ highlight, uid, onSignInRequired }) {
   )
 }
 
+// ── Comment Section ────────────────────────────────────────────────────────────
+
+function CommentSection({ highlight, uid, displayName, onSignInRequired }) {
+  const [comments, setComments] = useState([])
+  const [expanded, setExpanded] = useState(false)
+  const [inputText, setInputText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    if (!expanded) return
+    return subscribeToComments(highlight.id, setComments)
+  }, [highlight.id, expanded])
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!uid) { onSignInRequired(); return }
+    if (!inputText.trim() || submitting) return
+    setSubmitting(true)
+    try {
+      await addComment(highlight.id, uid, displayName, inputText)
+      setInputText('')
+    } catch (err) { console.error(err) }
+    finally { setSubmitting(false) }
+  }
+
+  async function handleDelete(commentId) {
+    if (!window.confirm('Delete this comment?')) return
+    setDeletingId(commentId)
+    try { await deleteComment(highlight.id, commentId) }
+    catch (err) { console.error(err) }
+    finally { setDeletingId(null) }
+  }
+
+  function handleExpandClick() {
+    if (!uid) { onSignInRequired(); return }
+    setExpanded(true)
+    setTimeout(() => inputRef.current?.focus(), 100)
+  }
+
+  const commentCount = highlight.commentCount || 0
+  const previewComments = comments.slice(-2)
+
+  return (
+    <div className="border-t border-white/5 px-4 pt-3 pb-1">
+      {/* Preview / collapse toggle */}
+      {!expanded ? (
+        <button
+          onClick={handleExpandClick}
+          className="flex w-full items-center gap-2 rounded-xl bg-white/3 px-3 py-2 text-left text-xs text-gray-500 hover:bg-white/5 hover:text-gray-400 transition"
+        >
+          <span>💬</span>
+          <span>{commentCount > 0 ? `${commentCount} comment${commentCount !== 1 ? 's' : ''} — tap to view` : 'Add a comment'}</span>
+        </button>
+      ) : (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-gray-400">
+              {commentCount > 0 ? `${commentCount} comment${commentCount !== 1 ? 's' : ''}` : 'Comments'}
+            </span>
+            <button onClick={() => setExpanded(false)} className="text-xs text-gray-600 hover:text-gray-400">✕ collapse</button>
+          </div>
+
+          {/* Comments list */}
+          <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
+            {comments.length === 0 && (
+              <p className="text-xs text-gray-600 py-2">Be the first to comment!</p>
+            )}
+            {comments.map((c) => (
+              <div key={c.id} className="flex items-start gap-2 group">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-800/50 text-[10px] font-bold text-blue-300">
+                  {(c.displayName || '?').slice(0, 1).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-semibold text-gray-300">{c.displayName} </span>
+                  <span className="text-xs text-gray-400">{c.text}</span>
+                  <div className="text-[10px] text-gray-600 mt-0.5">{relativeTime(c.createdAt)}</div>
+                </div>
+                {uid === c.uid && (
+                  <button
+                    onClick={() => handleDelete(c.id)}
+                    disabled={deletingId === c.id}
+                    className="shrink-0 opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition text-xs disabled:opacity-30"
+                  >
+                    🗑
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Input */}
+          {uid ? (
+            <form onSubmit={handleSubmit} className="flex items-center gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder="Add a comment…"
+                maxLength={280}
+                className="flex-1 rounded-xl bg-white/5 px-3 py-2 text-xs text-white placeholder-gray-600 outline-none ring-1 ring-white/10 focus:ring-blue-500/40"
+              />
+              <button
+                type="submit"
+                disabled={!inputText.trim() || submitting}
+                className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-40 transition"
+              >
+                {submitting ? '…' : 'Send'}
+              </button>
+            </form>
+          ) : (
+            <button onClick={onSignInRequired} className="text-xs text-blue-400 hover:text-blue-300 transition">
+              Sign in to comment
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Canvas Share ───────────────────────────────────────────────────────────────
+
+async function generateShareImage(highlight) {
+  const SIZE = 1080
+  const canvas = document.createElement('canvas')
+  canvas.width = SIZE
+  canvas.height = SIZE
+  const ctx = canvas.getContext('2d')
+
+  // Background gradient
+  const grad = ctx.createLinearGradient(0, 0, SIZE, SIZE)
+  grad.addColorStop(0, '#0f1117')
+  grad.addColorStop(1, '#1a2040')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, SIZE, SIZE)
+
+  // Subtle accent glow
+  const glow = ctx.createRadialGradient(SIZE / 2, SIZE * 0.4, 0, SIZE / 2, SIZE * 0.4, SIZE * 0.6)
+  glow.addColorStop(0, 'rgba(59,130,246,0.15)')
+  glow.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = glow
+  ctx.fillRect(0, 0, SIZE, SIZE)
+
+  // SportStream wordmark
+  ctx.font = 'bold 52px system-ui, sans-serif'
+  ctx.fillStyle = '#ffffff'
+  ctx.fillText('Sport', 60, 100)
+  const sportWidth = ctx.measureText('Sport').width
+  ctx.fillStyle = '#3b82f6'
+  ctx.fillText('Stream', 60 + sportWidth, 100)
+
+  // Trophy icon
+  ctx.font = '80px serif'
+  ctx.fillText('🏆', SIZE - 160, 110)
+
+  // Divider
+  ctx.fillStyle = 'rgba(255,255,255,0.08)'
+  ctx.fillRect(60, 130, SIZE - 120, 2)
+
+  // Player avatar circle (initials)
+  const avatarX = SIZE / 2
+  const avatarY = 300
+  const avatarR = 90
+
+  if (highlight.playerPhoto) {
+    try {
+      const img = await new Promise((res, rej) => {
+        const i = new Image()
+        i.crossOrigin = 'anonymous'
+        i.onload = () => res(i)
+        i.onerror = rej
+        i.src = highlight.playerPhoto
+      })
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(avatarX, avatarY, avatarR, 0, Math.PI * 2)
+      ctx.clip()
+      ctx.drawImage(img, avatarX - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2)
+      ctx.restore()
+    } catch {
+      drawInitialsAvatar(ctx, avatarX, avatarY, avatarR, highlight.playerName)
+    }
+  } else {
+    drawInitialsAvatar(ctx, avatarX, avatarY, avatarR, highlight.playerName)
+  }
+
+  // Avatar ring
+  ctx.beginPath()
+  ctx.arc(avatarX, avatarY, avatarR + 4, 0, Math.PI * 2)
+  ctx.strokeStyle = 'rgba(59,130,246,0.5)'
+  ctx.lineWidth = 4
+  ctx.stroke()
+
+  // Player name
+  ctx.font = 'bold 72px system-ui, sans-serif'
+  ctx.fillStyle = '#ffffff'
+  ctx.textAlign = 'center'
+  ctx.fillText(highlight.playerName || 'Unknown Player', SIZE / 2, 460)
+
+  // Play description (large)
+  ctx.font = 'bold 88px system-ui, sans-serif'
+  ctx.fillStyle = '#f59e0b'
+  const desc = (highlight.playDescription || '').toUpperCase()
+  wrapText(ctx, desc, SIZE / 2, 580, SIZE - 120, 100)
+
+  // Team name
+  ctx.font = '44px system-ui, sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.6)'
+  ctx.fillText(highlight.clubName || '', SIZE / 2, 720)
+
+  // Divider
+  ctx.fillStyle = 'rgba(255,255,255,0.08)'
+  ctx.fillRect(60, 800, SIZE - 120, 2)
+
+  // Score + date footer
+  ctx.font = '38px system-ui, sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.4)'
+  ctx.textAlign = 'left'
+  if (highlight.homeTeam && highlight.awayTeam) {
+    ctx.fillText(`${highlight.homeTeam} vs ${highlight.awayTeam}`, 60, 860)
+  }
+  ctx.textAlign = 'right'
+  ctx.fillText('sportstream-91d22.web.app', SIZE - 60, 860)
+
+  // Reactions count
+  const rc = highlight.reactionCount || 0
+  ctx.textAlign = 'center'
+  ctx.font = 'bold 42px system-ui, sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'
+  ctx.fillText(`🔥 ${rc} reaction${rc !== 1 ? 's' : ''}`, SIZE / 2, 960)
+
+  return canvas
+}
+
+function drawInitialsAvatar(ctx, x, y, r, name) {
+  const g = ctx.createRadialGradient(x, y - r / 3, r / 4, x, y, r)
+  g.addColorStop(0, '#1d4ed8')
+  g.addColorStop(1, '#1e3a8a')
+  ctx.beginPath()
+  ctx.arc(x, y, r, 0, Math.PI * 2)
+  ctx.fillStyle = g
+  ctx.fill()
+  ctx.font = `bold ${r}px system-ui, sans-serif`
+  ctx.fillStyle = '#ffffff'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText((name || '?').slice(0, 2).toUpperCase(), x, y)
+  ctx.textBaseline = 'alphabetic'
+}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(' ')
+  let line = ''
+  let cy = y
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line, x, cy)
+      line = word
+      cy += lineHeight
+    } else {
+      line = test
+    }
+  }
+  if (line) ctx.fillText(line, x, cy)
+}
+
+// ── Clip Upload ────────────────────────────────────────────────────────────────
+
+function ClipUploadButton({ highlightId, currentUrl, onUploaded }) {
+  const [progress, setProgress] = useState(null)
+  const [error, setError] = useState(null)
+  const fileRef = useRef(null)
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 50 * 1024 * 1024) { setError('File too large (max 50 MB)'); return }
+    setError(null)
+    setProgress(0)
+
+    // Simulate progress via a small interval while upload runs
+    const interval = setInterval(() => setProgress((p) => Math.min((p || 0) + 5, 90)), 300)
+    try {
+      const url = await uploadHighlightClip(highlightId, file)
+      clearInterval(interval)
+      setProgress(100)
+      onUploaded(url)
+      setTimeout(() => setProgress(null), 1500)
+    } catch (err) {
+      clearInterval(interval)
+      setError(err.message || 'Upload failed')
+      setProgress(null)
+    }
+    e.target.value = ''
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        onClick={() => fileRef.current?.click()}
+        className="text-xs text-gray-500 hover:text-gray-300 transition flex items-center gap-1"
+        disabled={progress !== null}
+      >
+        <span>📎</span>
+        <span>{currentUrl ? 'Replace Clip' : 'Attach Clip'}</span>
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="video/mp4,video/quicktime,video/webm,video/*"
+        className="hidden"
+        onChange={handleFile}
+      />
+      {progress !== null && (
+        <div className="h-1 w-full rounded-full bg-gray-700">
+          <div
+            className="h-1 rounded-full bg-blue-500 transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
+      {error && <p className="text-[10px] text-red-400">{error}</p>}
+    </div>
+  )
+}
+
+// ── Share Modal (desktop fallback) ────────────────────────────────────────────
+
+function ShareImageModal({ canvas, onClose, shareUrl }) {
+  const [copied, setCopied] = useState(false)
+  const imgUrl = canvas?.toDataURL('image/jpeg', 0.9)
+
+  function handleDownload() {
+    const a = document.createElement('a')
+    a.href = imgUrl
+    a.download = 'sportstream-highlight.jpg'
+    a.click()
+  }
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(shareUrl).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl bg-[#1a1f2e] p-4 ring-1 ring-white/10" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-3">
+          <p className="font-bold text-white text-sm">Share Highlight</p>
+          <button onClick={onClose} className="text-gray-500 hover:text-white">✕</button>
+        </div>
+        {imgUrl && <img src={imgUrl} alt="Highlight card" className="w-full rounded-xl mb-3" />}
+        <div className="flex gap-2">
+          <button onClick={handleDownload} className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 transition">
+            ↓ Download
+          </button>
+          <button onClick={handleCopy} className="flex-1 rounded-xl bg-gray-700 py-2.5 text-sm font-semibold text-gray-200 hover:bg-gray-600 transition">
+            {copied ? '✓ Copied!' : '🔗 Copy link'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Highlight Card ─────────────────────────────────────────────────────────────
 
-function HighlightCard({ highlight, uid, onSignInRequired }) {
+function HighlightCard({ highlight, uid, displayName, onSignInRequired, isOwner }) {
   const [nominated, setNominated] = useState(highlight.nominatedForAward)
   const [sharing, setSharing] = useState(false)
+  const [shareCanvas, setShareCanvas] = useState(null)
+  const [videoUrl, setVideoUrl] = useState(highlight.manualVideoUrl || null)
 
   async function handleNominate() {
     if (!uid) { onSignInRequired(); return }
@@ -111,21 +480,35 @@ function HighlightCard({ highlight, uid, onSignInRequired }) {
   }
 
   async function handleShare() {
-    const h = highlight
-    const shareText = `🏆 ${h.playerName} just ${h.playDescription} for ${h.clubName}! Watch on SportStream`
-    const shareUrl = `${window.location.origin}/game/${h.gameId}`
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'SportStream Highlight',
-          text: shareText,
-          url: shareUrl,
-        })
-      } catch {}
-    } else {
-      await navigator.clipboard.writeText(`${shareText}: ${shareUrl}`)
-      setSharing(true)
-      setTimeout(() => setSharing(false), 2000)
+    setSharing(true)
+    try {
+      const canvas = await generateShareImage(highlight)
+      const shareUrl = `${window.location.origin}/game/${highlight.gameId}`
+
+      if (navigator.share && navigator.canShare) {
+        try {
+          const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.9))
+          const file = new File([blob], 'highlight.jpg', { type: 'image/jpeg' })
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: 'SportStream Highlight',
+              text: `🏆 ${highlight.playerName} — ${highlight.playDescription}`,
+              files: [file],
+            })
+            return
+          }
+        } catch {}
+        // Fallback: share just the URL
+        try {
+          await navigator.share({ title: 'SportStream Highlight', url: shareUrl })
+          return
+        } catch {}
+      }
+
+      // Desktop fallback: show modal
+      setShareCanvas(canvas)
+    } finally {
+      setSharing(false)
     }
   }
 
@@ -133,109 +516,128 @@ function HighlightCard({ highlight, uid, onSignInRequired }) {
   const initials = (highlight.playerName || '?').slice(0, 2).toUpperCase()
 
   return (
-    <div className="rounded-2xl bg-[#1a1f2e] ring-1 ring-white/5 overflow-hidden">
-      {/* Header: player info */}
-      <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-        <Link to={highlight.playerId ? `/player/${highlight.clubId}/${highlight.playerId}` : '#'}>
-          {highlight.playerPhoto ? (
-            <img src={highlight.playerPhoto} alt={highlight.playerName}
-              className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-white/10" />
-          ) : (
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-800 to-blue-600 text-sm font-bold text-white ring-2 ring-white/10">
-              {initials}
-            </div>
-          )}
-        </Link>
-        <div className="min-w-0 flex-1">
-          <Link
-            to={highlight.playerId ? `/player/${highlight.clubId}/${highlight.playerId}` : '#'}
-            className="block truncate font-bold text-white hover:text-blue-300 transition text-sm"
-          >
-            {highlight.playerName || 'Unknown Player'}
+    <>
+      <div className="rounded-2xl bg-[#1a1f2e] ring-1 ring-white/5 overflow-hidden">
+        {/* Header: player info */}
+        <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+          <Link to={highlight.playerId ? `/player/${highlight.clubId}/${highlight.playerId}` : '#'}>
+            {highlight.playerPhoto ? (
+              <img src={highlight.playerPhoto} alt={highlight.playerName}
+                className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-white/10" />
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-800 to-blue-600 text-sm font-bold text-white ring-2 ring-white/10">
+                {initials}
+              </div>
+            )}
           </Link>
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-            <Link to={`/team/${highlight.clubId}`} className="hover:text-gray-300 transition truncate">
-              {highlight.clubName}
+          <div className="min-w-0 flex-1">
+            <Link
+              to={highlight.playerId ? `/player/${highlight.clubId}/${highlight.playerId}` : '#'}
+              className="block truncate font-bold text-white hover:text-blue-300 transition text-sm"
+            >
+              {highlight.playerName || 'Unknown Player'}
             </Link>
-            <span>·</span>
-            <span>{sportEmoji}</span>
-            <span>{relativeTime(highlight.createdAt)}</span>
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <Link to={`/team/${highlight.clubId}`} className="hover:text-gray-300 transition truncate">
+                {highlight.clubName}
+              </Link>
+              <span>·</span>
+              <span>{sportEmoji}</span>
+              <span>{relativeTime(highlight.createdAt)}</span>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {highlight.gameStatus === 'live' && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-green-900/60 px-2 py-0.5 text-[10px] font-bold text-green-300 ring-1 ring-green-800/40">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
+                LIVE
+              </span>
+            )}
+            {highlight.nominatedForAward && (
+              <span className="text-xs font-bold text-yellow-500">🏆 Nominated</span>
+            )}
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          {highlight.gameStatus === 'live' && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-green-900/60 px-2 py-0.5 text-[10px] font-bold text-green-300 ring-1 ring-green-800/40">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
-              LIVE
-            </span>
+
+        {/* Play description */}
+        <div className="px-4 pb-3">
+          <p className="text-lg font-extrabold text-white leading-snug">
+            {highlight.playDescription}
+          </p>
+          {highlight.gameContext && (
+            <p className="mt-1 text-xs text-gray-500">{highlight.gameContext}</p>
           )}
-          {highlight.nominatedForAward && (
-            <span className="text-xs font-bold text-yellow-500">🏆 Nominated</span>
+          {(highlight.homeTeam || highlight.awayTeam) && (
+            <Link to={`/game/${highlight.gameId}`} className="mt-1 flex items-center gap-1 text-xs text-blue-400/80 hover:text-blue-300">
+              {highlight.homeTeam} vs {highlight.awayTeam} →
+            </Link>
           )}
         </div>
-      </div>
 
-      {/* Play description */}
-      <div className="px-4 pb-3">
-        <p className="text-lg font-extrabold text-white leading-snug">
-          {highlight.playDescription}
-        </p>
-        {highlight.gameContext && (
-          <p className="mt-1 text-xs text-gray-500">{highlight.gameContext}</p>
+        {/* Video player */}
+        {videoUrl && (
+          <div className="mx-4 mb-3 overflow-hidden rounded-xl">
+            <video
+              src={videoUrl}
+              controls
+              playsInline
+              muted
+              preload="metadata"
+              className="w-full rounded-xl max-h-72"
+            />
+          </div>
         )}
-        {(highlight.homeTeam || highlight.awayTeam) && (
-          <Link to={`/game/${highlight.gameId}`} className="mt-1 flex items-center gap-1 text-xs text-blue-400/80 hover:text-blue-300">
-            {highlight.homeTeam} vs {highlight.awayTeam} →
-          </Link>
-        )}
-      </div>
 
-      {/* Video player */}
-      {highlight.manualVideoUrl && (
-        <div className="mx-4 mb-3 overflow-hidden rounded-xl">
-          <video
-            src={highlight.manualVideoUrl}
-            controls
-            playsInline
-            preload="metadata"
-            className="w-full rounded-xl"
-          />
-        </div>
-      )}
+        {/* Reactions + actions */}
+        <div className="border-t border-white/5 px-4 py-3 space-y-3">
+          <ReactionStrip highlight={highlight} uid={uid} onSignInRequired={onSignInRequired} />
 
-      {/* Reactions + actions */}
-      <div className="border-t border-white/5 px-4 py-3 space-y-3">
-        <ReactionStrip highlight={highlight} uid={uid} onSignInRequired={onSignInRequired} />
-
-        <button className="mt-2 flex w-full items-center gap-2 rounded-xl bg-white/3 px-3 py-2 text-left text-xs text-gray-500 hover:bg-white/5 hover:text-gray-400 transition">
-          <span>💬</span>
-          <span>Add a comment</span>
-        </button>
-
-        <div className="flex items-center gap-3">
-          {uid && !nominated && (
+          <div className="flex items-center gap-3">
+            {isOwner && (
+              <ClipUploadButton
+                highlightId={highlight.id}
+                currentUrl={videoUrl}
+                onUploaded={(url) => setVideoUrl(url)}
+              />
+            )}
+            {uid && !nominated && (
+              <button onClick={handleNominate} className="text-xs text-gray-600 hover:text-yellow-500 transition">
+                🏆 Nominate
+              </button>
+            )}
             <button
-              onClick={handleNominate}
-              className="text-xs text-gray-600 hover:text-yellow-500 transition"
+              onClick={handleShare}
+              disabled={sharing}
+              className="ml-auto text-xs text-gray-600 hover:text-gray-300 transition disabled:opacity-50"
             >
-              🏆 Nominate for Award
+              {sharing ? '…' : '↑ Share'}
             </button>
-          )}
-          <button
-            onClick={handleShare}
-            className="ml-auto text-xs text-gray-600 hover:text-gray-300 transition"
-          >
-            {sharing ? '✓ Copied!' : '↑ Share'}
-          </button>
+          </div>
         </div>
+
+        {/* Comments */}
+        <CommentSection
+          highlight={highlight}
+          uid={uid}
+          displayName={displayName}
+          onSignInRequired={onSignInRequired}
+        />
       </div>
-    </div>
+
+      {shareCanvas && (
+        <ShareImageModal
+          canvas={shareCanvas}
+          shareUrl={`${window.location.origin}/game/${highlight.gameId}`}
+          onClose={() => setShareCanvas(null)}
+        />
+      )}
+    </>
   )
 }
 
 // ── Top 10 Strip ───────────────────────────────────────────────────────────────
 
-function WeeklyTop10Strip({ uid, onSignInRequired }) {
+function WeeklyTop10Strip({ uid, displayName, onSignInRequired }) {
   const [weekData, setWeekData] = useState(null)
   const [highlights, setHighlights] = useState([])
   const [expanded, setExpanded] = useState(null)
@@ -268,7 +670,7 @@ function WeeklyTop10Strip({ uid, onSignInRequired }) {
                 <button onClick={() => setExpanded(null)} className="mb-1.5 text-xs text-gray-500 hover:text-white">
                   ✕ collapse
                 </button>
-                <HighlightCard highlight={h} uid={uid} onSignInRequired={onSignInRequired} />
+                <HighlightCard highlight={h} uid={uid} displayName={displayName} onSignInRequired={onSignInRequired} />
               </div>
             ) : (
               <button
@@ -332,6 +734,7 @@ export default function WallOfFamePage() {
   }, [user, userDoc])
 
   const uid = user?.uid || null
+  const displayName = userDoc?.displayName || user?.displayName || user?.email?.split('@')[0] || 'User'
 
   const tabs = [
     { id: 'discover',  label: 'Discover' },
@@ -388,7 +791,7 @@ export default function WallOfFamePage() {
         {/* Discover tab */}
         {tab === 'discover' && (
           <>
-            <WeeklyTop10Strip uid={uid} onSignInRequired={() => setShowSignInPrompt(true)} />
+            <WeeklyTop10Strip uid={uid} displayName={displayName} onSignInRequired={() => setShowSignInPrompt(true)} />
 
             {discoverLoading ? (
               <div className="flex justify-center py-16">
@@ -406,6 +809,7 @@ export default function WallOfFamePage() {
                   key={h.id}
                   highlight={h}
                   uid={uid}
+                  displayName={displayName}
                   onSignInRequired={() => setShowSignInPrompt(true)}
                 />
               ))
@@ -443,6 +847,7 @@ export default function WallOfFamePage() {
                   key={h.id}
                   highlight={h}
                   uid={uid}
+                  displayName={displayName}
                   onSignInRequired={() => setShowSignInPrompt(true)}
                 />
               ))

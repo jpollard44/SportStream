@@ -13,6 +13,7 @@ import {
   battingAvg, isBaseballSport,
 } from '../lib/statsHelpers'
 import { PageSpinner, LiveBadge, AppBadge } from '../components/ui'
+import SponsorBanner from '../components/SponsorBanner'
 import { useLiveGamePlayers } from '../hooks/useLiveGamePlayers'
 
 function computeRecord(games, clubId) {
@@ -299,6 +300,9 @@ export default function TeamPage() {
         </div>
       </div>
 
+      {/* Sponsor banner */}
+      <SponsorBanner doc={club} isHost={user?.uid === club?.ownerId || club?.adminIds?.includes(user?.uid)} />
+
       {/* Live game banner */}
       {liveGame && (
         <div className="border-b border-green-900/40 bg-green-950/30 px-5 py-3">
@@ -483,13 +487,18 @@ export default function TeamPage() {
                 const pIsFollowing = userDoc?.followedPlayers?.some((fp) => fp.playerId === p.id) ?? false
                 return (
                   <div key={p.id} className="flex items-center gap-3 rounded-2xl bg-[#1a1f2e] px-4 py-3">
-                    <Link to={`/player/${clubId}/${p.id}`} className="shrink-0">
+                    <Link to={`/player/${clubId}/${p.id}`} className="relative shrink-0">
                       {p.photoUrl ? (
                         <img src={p.photoUrl} alt={p.name} className="h-10 w-10 rounded-full object-cover ring-1 ring-gray-700 hover:ring-blue-500 transition" />
                       ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-900/50 font-extrabold text-blue-300 hover:bg-blue-800/60 transition">
-                          {p.number || '—'}
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-900/50 hover:bg-blue-800/60 transition">
+                          <span className="text-lg font-extrabold text-blue-300 leading-none">{p.number || '?'}</span>
                         </div>
+                      )}
+                      {p.number && p.photoUrl && (
+                        <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#0f1117] ring-1 ring-blue-700 text-[10px] font-extrabold text-blue-400">
+                          {p.number}
+                        </span>
                       )}
                     </Link>
                     <Link to={`/player/${clubId}/${p.id}`} className="min-w-0 flex-1">

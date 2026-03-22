@@ -1,5 +1,5 @@
 import {
-  collection, doc, addDoc, getDoc, getDocs, setDoc, updateDoc,
+  collection, doc, addDoc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, onSnapshot, serverTimestamp,
   increment, runTransaction,
 } from 'firebase/firestore'
@@ -195,6 +195,35 @@ export async function createManualHighlight({
     manualVideoUrl: null,
   })
   return ref.id
+}
+
+// ── Comments ──────────────────────────────────────────────────────────────────
+
+/** Real-time listener for comments on a highlight (chronological) */
+export function subscribeToComments(highlightId, cb) {
+  const q = query(
+    collection(db, 'highlights', highlightId, 'comments'),
+    orderBy('createdAt', 'asc'),
+    limit(50)
+  )
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
+/** Add a comment to a highlight */
+export async function addComment(highlightId, uid, displayName, text) {
+  await addDoc(collection(db, 'highlights', highlightId, 'comments'), {
+    uid,
+    displayName: displayName || 'Anonymous',
+    text: text.trim(),
+    createdAt: serverTimestamp(),
+  })
+  await updateDoc(doc(db, 'highlights', highlightId), { commentCount: increment(1) })
+}
+
+/** Delete own comment */
+export async function deleteComment(highlightId, commentId) {
+  await deleteDoc(doc(db, 'highlights', highlightId, 'comments', commentId))
+  await updateDoc(doc(db, 'highlights', highlightId), { commentCount: increment(-1) })
 }
 
 /** Upload a video clip for a highlight to Firebase Storage */

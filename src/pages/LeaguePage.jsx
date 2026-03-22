@@ -13,6 +13,7 @@ import {
   computeLeagueStandings,
 } from '../firebase/leagues'
 import { createGame, updateGame } from '../firebase/firestore'
+import SponsorBanner from '../components/SponsorBanner'
 import { generateUniqueJoinCode } from '../lib/generateJoinCode'
 
 const SPORT_EMOJI = {
@@ -235,6 +236,9 @@ export default function LeaguePage() {
           )}
         </div>
       </div>
+
+      {/* Sponsor banner */}
+      <SponsorBanner doc={league} isHost={user?.uid === league?.hostId} />
 
       {/* Tabs */}
       <div className="flex border-b border-white/5">

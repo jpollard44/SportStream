@@ -24,6 +24,8 @@ import LeaguePage from './pages/LeaguePage'
 import LeagueJoinPage from './pages/LeagueJoinPage'
 import FanProfilePage from './pages/FanProfilePage'
 import WallOfFamePage from './pages/WallOfFamePage'
+import DiscoverPage from './pages/DiscoverPage'
+import PricingPage from './pages/PricingPage'
 import RolePickerPage from './pages/RolePickerPage'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import BottomNav from './components/layout/BottomNav'
@@ -148,6 +150,8 @@ export default function App() {
         <Route path="/league/:leagueId/join" element={<LeagueJoinPage />} />
         <Route path="/fan/:uid" element={<FanProfilePage />} />
         <Route path="/wall-of-fame" element={<WallOfFamePage />} />
+        <Route path="/discover" element={<DiscoverPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

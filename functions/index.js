@@ -742,3 +742,188 @@ exports.compileWeeklyTop10 = onSchedule('every monday 00:01', async () => {
     console.error('compileWeeklyTop10 error:', e)
   }
 })
+
+// ── checkPremium — stub for future Stripe subscription check ─────────────────
+// TODO: integrate real Stripe subscription check when billing is enabled.
+// When ready: require('stripe')(STRIPE_SECRET_KEY.value()).subscriptions.list(...)
+exports.checkPremium = onCall(async (request) => {
+  const uid = request.auth?.uid
+  if (!uid) throw new HttpsError('unauthenticated', 'Must be signed in')
+
+  // TODO: check Stripe subscription status using user's stripeCustomerId
+  // const userDoc = await db.doc(`users/${uid}`).get()
+  // const customerId = userDoc.data()?.stripeCustomerId
+  // ... query Stripe API ...
+
+  return { isPremium: false, plan: 'free' }
+})
+
+// ── sendWeeklyDigest — runs every Sunday at 6 PM UTC ─────────────────────────
+// Sends an HTML email recap to users with followed clubs/players.
+// Uses the Resend API (same key as createTournamentPool).
+// TODO: set RESEND_API_KEY secret and update RESEND_FROM_ADDRESS below.
+const RESEND_FROM_ADDRESS = 'SportStream <noreply@sportstream.app>'
+
+exports.sendWeeklyDigest = onSchedule(
+  { schedule: 'every sunday 18:00', secrets: [RESEND_API_KEY] },
+  async () => {
+    const now = new Date()
+    const weekStart = new Date(now)
+    weekStart.setDate(weekStart.getDate() - 7)
+    weekStart.setHours(0, 0, 0, 0)
+
+    const weekLabel = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+
+    try {
+      // 1. Fetch top highlight of the week (platform-wide #1)
+      const topSnap = await db.collection('highlights')
+        .where('createdAt', '>=', weekStart)
+        .orderBy('createdAt')
+        .limit(50)
+        .get()
+      const allHighlights = topSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.reactionCount || 0) - (a.reactionCount || 0))
+      const platformTop = allHighlights[0] || null
+
+      // 2. Fetch users with followed clubs or players
+      const usersSnap = await db.collection('users').limit(1000).get()
+
+      let emailsSent = 0
+
+      for (const userDoc of usersSnap.docs) {
+        const userData = userDoc.data()
+
+        // Respect opt-out preference
+        if (userData.notificationPrefs?.emailDigest === false) continue
+
+        const email = userData.email
+        if (!email) continue
+
+        const followedClubs   = userData.followedClubs   || []
+        const followedPlayers = (userData.followedPlayers || []).map((fp) => fp.playerId || fp)
+
+        if (followedClubs.length === 0 && followedPlayers.length === 0) continue
+
+        // 3. Fetch top 3 highlights from followed clubs/players this week
+        let personalHighlights = allHighlights
+          .filter((h) =>
+            followedClubs.includes(h.clubId) ||
+            followedPlayers.includes(h.playerId)
+          )
+          .slice(0, 3)
+
+        // Skip if nothing relevant and no platform top
+        if (personalHighlights.length === 0 && !platformTop) continue
+
+        // 4. Build HTML email
+        const displayName = userData.displayName || email.split('@')[0]
+
+        function highlightRow(h) {
+          if (!h) return ''
+          const reactions = h.reactionCount || 0
+          const link = `${APP_URL}/game/${h.gameId}`
+          return `
+            <tr>
+              <td style="padding:12px 0;border-bottom:1px solid #1e293b;">
+                <p style="margin:0;font-size:14px;font-weight:700;color:#fff;">${h.playerName || 'Unknown'}</p>
+                <p style="margin:4px 0 0;font-size:13px;color:#94a3b8;">${h.playDescription || ''}</p>
+                <p style="margin:4px 0 0;font-size:12px;color:#64748b;">${h.clubName || ''} · 🔥 ${reactions} reaction${reactions !== 1 ? 's' : ''}</p>
+                <a href="${link}" style="display:inline-block;margin-top:6px;font-size:12px;color:#3b82f6;text-decoration:none;">Watch the play →</a>
+              </td>
+            </tr>
+          `
+        }
+
+        const personalRows = personalHighlights.map(highlightRow).join('')
+        const topRow = platformTop && !personalHighlights.find((h) => h.id === platformTop.id)
+          ? highlightRow(platformTop)
+          : ''
+
+        const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="background:#0f1117;color:#e2e8f0;font-family:system-ui,sans-serif;margin:0;padding:0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;padding:24px 16px;">
+    <tr>
+      <td>
+        <!-- Header -->
+        <p style="font-size:22px;font-weight:900;margin:0 0 4px;">
+          Sport<span style="color:#3b82f6;">Stream</span>
+        </p>
+        <p style="font-size:12px;color:#64748b;margin:0 0 24px;">Wall of Fame Weekly Recap</p>
+
+        <h1 style="font-size:18px;font-weight:700;margin:0 0 4px;color:#fff;">
+          🏆 Your Wall of Fame recap
+        </h1>
+        <p style="font-size:13px;color:#94a3b8;margin:0 0 20px;">Week of ${weekLabel}</p>
+
+        <p style="font-size:14px;color:#e2e8f0;margin:0 0 20px;">Hey ${displayName}! Here's what happened with your teams and players this week.</p>
+
+        ${personalRows ? `
+        <h2 style="font-size:14px;font-weight:700;color:#f59e0b;margin:0 0 8px;text-transform:uppercase;letter-spacing:.05em;">From Your Teams</h2>
+        <table width="100%" cellpadding="0" cellspacing="0">${personalRows}</table>
+        ` : ''}
+
+        ${topRow ? `
+        <h2 style="font-size:14px;font-weight:700;color:#94a3b8;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.05em;">#1 Highlight This Week</h2>
+        <table width="100%" cellpadding="0" cellspacing="0">${topRow}</table>
+        ` : ''}
+
+        <!-- CTA -->
+        <div style="text-align:center;margin:28px 0;">
+          <a href="${APP_URL}/wall-of-fame"
+            style="display:inline-block;background:#3b82f6;color:#fff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:12px;text-decoration:none;">
+            See This Week's Top 10 →
+          </a>
+        </div>
+
+        <!-- Footer -->
+        <p style="font-size:11px;color:#334155;text-align:center;margin-top:24px;">
+          You're receiving this because you follow teams on SportStream.
+          <br>To stop receiving these emails, update your notification preferences in
+          <a href="${APP_URL}/settings" style="color:#475569;">Account Settings</a>.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+        // TODO: set RESEND_API_KEY secret via: firebase functions:secrets:set RESEND_API_KEY
+        const resendKey = RESEND_API_KEY.value()
+        if (!resendKey || resendKey === 'placeholder') {
+          console.log(`sendWeeklyDigest: skipping email to ${email} — RESEND_API_KEY not configured`)
+          continue
+        }
+
+        // 5. Send via Resend
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: RESEND_FROM_ADDRESS,
+            to: [email],
+            subject: `🏆 Your SportStream Wall of Fame recap — Week of ${weekLabel}`,
+            html: htmlBody,
+          }),
+        })
+
+        if (res.ok) {
+          emailsSent++
+        } else {
+          const err = await res.text().catch(() => res.status)
+          console.warn(`sendWeeklyDigest: failed for ${email}:`, err)
+        }
+      }
+
+      console.log(`sendWeeklyDigest: sent ${emailsSent} digest emails`)
+    } catch (e) {
+      console.error('sendWeeklyDigest error:', e)
+    }
+  }
+)
