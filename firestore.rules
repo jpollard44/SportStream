@@ -25,7 +25,7 @@ service cloud.firestore {
     match /games/{gameId} {
       allow read: if true;
       allow create: if request.auth != null;
-      allow update: if request.auth != null && (
+      allow update, delete: if request.auth != null && (
         request.auth.uid == resource.data.scorekeeperId ||
         (resource.data.clubId != null &&
           request.auth.uid in get(/databases/$(database)/documents/clubs/$(resource.data.clubId)).data.adminIds)
@@ -36,6 +36,7 @@ service cloud.firestore {
         allow create: if request.auth != null &&
           request.auth.uid == get(/databases/$(database)/documents/games/$(gameId)).data.scorekeeperId;
         allow update: if request.auth != null && request.auth.uid == resource.data.createdBy;
+        allow delete: if request.auth != null;
       }
     }
 

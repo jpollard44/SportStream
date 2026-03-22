@@ -124,6 +124,10 @@ export default function ClubPage() {
     try {
       await deleteGame(gameId)
       setConfirmDeleteGame(null)
+    } catch (err) {
+      console.error('deleteGame failed:', err)
+      setUploadError('Failed to delete game: ' + (err?.message || 'unknown error'))
+      setConfirmDeleteGame(null)
     } finally {
       setDeletingGame(false)
     }
