@@ -17,7 +17,7 @@ function fmtDateCompact(iso) {
     ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
-export default function BracketView({ tournament, teams, isHost, onSchedule, onDeclare, onEdit }) {
+export default function BracketView({ tournament, teams, games, isHost, onSchedule, onDeclare, onEdit }) {
   const isSE = tournament.format === 'single_elimination'
   const isRR = tournament.format === 'round_robin'
   const isDE = tournament.format === 'double_elimination'
@@ -38,6 +38,7 @@ export default function BracketView({ tournament, teams, isHost, onSchedule, onD
   if (isSE) return (
     <SingleEliminationBracket
       matchups={wMatchups}
+      games={games}
       isHost={isHost}
       onSchedule={onSchedule}
       onDeclare={(match) => onDeclare(match, 'winners')}
@@ -48,6 +49,7 @@ export default function BracketView({ tournament, teams, isHost, onSchedule, onD
     <RoundRobinSchedule
       matchups={tournament.schedule || []}
       teams={teams}
+      games={games}
       isHost={isHost}
       onSchedule={onSchedule}
       onDeclare={(match) => onDeclare(match, 'winners')}
@@ -58,6 +60,7 @@ export default function BracketView({ tournament, teams, isHost, onSchedule, onD
     <DoubleEliminationBracket
       winnersBracket={wMatchups}
       losersBracket={lMatchups}
+      games={games}
       isHost={isHost}
       onSchedule={onSchedule}
       onDeclare={onDeclare}
@@ -95,7 +98,7 @@ function roundLabel(r, total) {
 
 // ── Single-elimination bracket ─────────────────────────────────────────────────
 
-function SingleEliminationBracket({ matchups, isHost, onSchedule, onDeclare, onEdit }) {
+function SingleEliminationBracket({ matchups, games, isHost, onSchedule, onDeclare, onEdit }) {
   const rounds      = [...new Set(matchups.map((m) => m.round))].sort((a, b) => a - b)
   const totalRounds = rounds.length
   const r1Count     = matchups.filter((m) => m.round === 1).length
@@ -170,7 +173,7 @@ function SingleEliminationBracket({ matchups, isHost, onSchedule, onDeclare, onE
             const { lx, cy } = pos[m.matchId]
             return (
               <div key={m.matchId} style={{ position: 'absolute', left: lx, top: cy - CARD_H / 2, width: CARD_W, zIndex: 1 }}>
-                <BracketCard match={m} isHost={isHost} onSchedule={onSchedule} onDeclare={onDeclare} onEdit={onEdit} />
+                <BracketCard match={m} games={games} isHost={isHost} onSchedule={onSchedule} onDeclare={onDeclare} onEdit={onEdit} />
               </div>
             )
           })}
@@ -193,7 +196,7 @@ function SingleEliminationBracket({ matchups, isHost, onSchedule, onDeclare, onE
 
 // ── Double-elimination bracket ─────────────────────────────────────────────────
 
-function DoubleEliminationBracket({ winnersBracket, losersBracket, isHost, onSchedule, onDeclare, onEdit }) {
+function DoubleEliminationBracket({ winnersBracket, losersBracket, games, isHost, onSchedule, onDeclare, onEdit }) {
   const [deTab, setDeTab] = useState('winners')
 
   const wMatches = winnersBracket.filter((m) => m.bracket !== 'grandFinal')
@@ -226,6 +229,7 @@ function DoubleEliminationBracket({ winnersBracket, losersBracket, isHost, onSch
           <p className="px-5 pt-3 text-[10px] font-bold uppercase tracking-wider text-green-600">Winners Bracket</p>
           <SEBracketCanvas
             matchups={wMatches}
+            games={games}
             isHost={isHost}
             onSchedule={onSchedule}
             onDeclare={(match) => onDeclare(match, 'winners')}
@@ -244,6 +248,7 @@ function DoubleEliminationBracket({ winnersBracket, losersBracket, isHost, onSch
           ) : (
             <LosersScheduleList
               matchups={losersBracket}
+              games={games}
               isHost={isHost}
               onSchedule={onSchedule}
               onDeclare={(match) => onDeclare(match, 'losers')}
@@ -259,6 +264,7 @@ function DoubleEliminationBracket({ winnersBracket, losersBracket, isHost, onSch
           {gfMatch ? (
             <MatchupCard
               match={gfMatch}
+              games={games}
               isHost={isHost}
               onSchedule={onSchedule}
               onDeclare={(match) => onDeclare(match, 'grandFinal')}
@@ -282,7 +288,7 @@ function DoubleEliminationBracket({ winnersBracket, losersBracket, isHost, onSch
 
 // ── Shared SE canvas (reused by both SE and winners bracket in DE) ──────────────
 
-function SEBracketCanvas({ matchups, isHost, onSchedule, onDeclare, onEdit }) {
+function SEBracketCanvas({ matchups, games, isHost, onSchedule, onDeclare, onEdit }) {
   if (!matchups.length) return null
   const rounds      = [...new Set(matchups.map((m) => m.round))].sort((a, b) => a - b)
   const totalRounds = rounds.length
@@ -346,7 +352,7 @@ function SEBracketCanvas({ matchups, isHost, onSchedule, onDeclare, onEdit }) {
             if (!p) return null
             return (
               <div key={m.matchId} style={{ position: 'absolute', left: p.lx, top: p.cy - CARD_H / 2, width: CARD_W, zIndex: 1 }}>
-                <BracketCard match={m} isHost={isHost} onSchedule={onSchedule} onDeclare={onDeclare} onEdit={onEdit} />
+                <BracketCard match={m} games={games} isHost={isHost} onSchedule={onSchedule} onDeclare={onDeclare} onEdit={onEdit} />
               </div>
             )
           })}
@@ -358,7 +364,7 @@ function SEBracketCanvas({ matchups, isHost, onSchedule, onDeclare, onEdit }) {
 
 // ── Losers bracket — list view (grouped by L round) ───────────────────────────
 
-function LosersScheduleList({ matchups, isHost, onSchedule, onDeclare, onEdit }) {
+function LosersScheduleList({ matchups, games, isHost, onSchedule, onDeclare, onEdit }) {
   const lRounds = [...new Set(matchups.map((m) => m.lRound))].sort((a, b) => a - b)
   return (
     <div className="space-y-5 px-4 py-3">
@@ -374,6 +380,7 @@ function LosersScheduleList({ matchups, isHost, onSchedule, onDeclare, onEdit })
                 <MatchupCard
                   key={match.matchId}
                   match={match}
+                  games={games}
                   isHost={isHost}
                   onSchedule={onSchedule}
                   onDeclare={onDeclare}
@@ -390,7 +397,7 @@ function LosersScheduleList({ matchups, isHost, onSchedule, onDeclare, onEdit })
 
 // ── Bracket card (winners bracket) ────────────────────────────────────────────
 
-function BracketCard({ match, isHost, onSchedule, onDeclare, onEdit }) {
+function BracketCard({ match, games, isHost, onSchedule, onDeclare, onEdit }) {
   const [expanded, setExpanded] = useState(false)
 
   const homeWon     = match.winnerId === match.homeTeamId
@@ -429,6 +436,15 @@ function BracketCard({ match, isHost, onSchedule, onDeclare, onEdit }) {
 
       {!expanded && (
         <div className="mt-0.5 space-y-px px-0.5">
+          {match.gameId && (() => {
+            const liveGame = (games || []).find(g => g.id === match.gameId && (g.status === 'live' || g.status === 'active'))
+            return liveGame ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-green-900/60 px-1.5 py-0.5 text-[8px] font-bold text-green-300">
+                <span className="h-1 w-1 animate-pulse rounded-full bg-green-400" />
+                LIVE
+              </span>
+            ) : null
+          })()}
           {match.field && (
             <p className="truncate text-[9px] font-semibold leading-tight text-blue-400/70">
               Field {match.field}
@@ -490,7 +506,7 @@ function BracketCard({ match, isHost, onSchedule, onDeclare, onEdit }) {
 
 // ── Round-robin / losers bracket matchup card ──────────────────────────────────
 
-function MatchupCard({ match, isHost, onSchedule, onDeclare, onEdit }) {
+function MatchupCard({ match, games, isHost, onSchedule, onDeclare, onEdit }) {
   const hasWinner   = !!match.winnerId
   const hasGame     = !!match.gameId
   const canSchedule = !hasGame && match.homeTeamId && match.awayTeamId
@@ -517,6 +533,15 @@ function MatchupCard({ match, isHost, onSchedule, onDeclare, onEdit }) {
         </p>
       </div>
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+        {match.gameId && (() => {
+          const liveGame = (games || []).find(g => g.id === match.gameId && (g.status === 'live' || g.status === 'active'))
+          return liveGame ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-900/60 px-2 py-0.5 text-[10px] font-bold text-green-300 ring-1 ring-green-800/40">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
+              LIVE
+            </span>
+          ) : null
+        })()}
         {match.field && (
           <span className="text-[10px] font-semibold text-blue-400/70">Field {match.field}</span>
         )}
@@ -558,7 +583,7 @@ function MatchupCard({ match, isHost, onSchedule, onDeclare, onEdit }) {
 
 // ── Round-robin schedule ───────────────────────────────────────────────────────
 
-function RoundRobinSchedule({ matchups, teams, isHost, onSchedule, onDeclare, onEdit }) {
+function RoundRobinSchedule({ matchups, teams, games, isHost, onSchedule, onDeclare, onEdit }) {
   const standings = computeStandings(matchups, teams)
   const rounds = [...new Set(matchups.map((m) => m.round))].sort((a, b) => a - b)
 
@@ -605,6 +630,7 @@ function RoundRobinSchedule({ matchups, teams, isHost, onSchedule, onDeclare, on
                 <MatchupCard
                   key={match.matchId}
                   match={match}
+                  games={games}
                   isHost={isHost}
                   onSchedule={onSchedule}
                   onDeclare={onDeclare}

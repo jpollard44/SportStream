@@ -12,6 +12,7 @@ import {
   battingAvg, isBaseballSport,
 } from '../lib/statsHelpers'
 import { PageSpinner, LiveBadge, AppBadge } from '../components/ui'
+import { useLiveGamePlayers } from '../hooks/useLiveGamePlayers'
 
 function computeRecord(games, clubId) {
   let W = 0, L = 0, T = 0
@@ -86,8 +87,11 @@ export default function TeamPage() {
       .finally(() => setLoadingStats(false))
   }, [activeTab, club, games, seasonStats, loadingStats])
 
+  const { livePlayerIds, liveGameId: liveGameIdForRoster } = useLiveGamePlayers(clubId)
+
   const isFollowing  = userDoc?.followedClubs?.includes(clubId) ?? false
   const liveGame     = games.find((g) => g.status === 'live')
+  const liveGames    = games.filter((g) => g.status === 'live')
   const { W, L, T }  = computeRecord(games, clubId)
   const finalGames   = games.filter((g) => g.status === 'final')
   const upcomingGames = games.filter((g) => g.status === 'setup')
@@ -258,6 +262,41 @@ export default function TeamPage() {
               <p className="py-12 text-center text-sm text-gray-500">No games yet.</p>
             )}
 
+            {/* Live Now */}
+            {liveGames.length > 0 && (
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-green-500">● Live Now</p>
+                <div className="space-y-2">
+                  {liveGames.map((g) => {
+                    const isHome = g.clubId === clubId
+                    const myScore = isHome ? g.homeScore : g.awayScore
+                    const oppScore = isHome ? g.awayScore : g.homeScore
+                    const opponent = isHome ? g.awayTeam : g.homeTeam
+                    return (
+                      <Link key={g.id} to={`/game/${g.id}`}
+                        className="flex items-center justify-between rounded-2xl bg-[#1a1f2e] border-l-2 border-green-500 px-4 py-3.5 transition hover:bg-[#242938]">
+                        <div className="min-w-0">
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-900/60 px-2 py-0.5 text-[10px] font-bold text-green-300">
+                              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
+                              LIVE
+                            </span>
+                          </div>
+                          <p className="truncate text-sm font-semibold text-white">
+                            vs. <span className="text-gray-300">{opponent}</span>
+                          </p>
+                        </div>
+                        <div className="ml-4 flex shrink-0 items-center gap-3">
+                          <p className="font-mono text-lg font-bold text-white">{myScore}–{oppScore}</p>
+                          <span className="text-gray-600">›</span>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Upcoming */}
             {upcomingGames.length > 0 && (
               <div>
@@ -373,6 +412,9 @@ export default function TeamPage() {
                         </>
                       )}
                     </Link>
+                    {livePlayerIds.has(p.id) && (
+                      <span title="In live game" className="ml-1 inline-block h-2 w-2 animate-pulse rounded-full bg-green-400" />
+                    )}
                     <button
                       onClick={async () => {
                         if (!user) { setShowSignInPrompt(true); return }

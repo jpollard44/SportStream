@@ -66,6 +66,35 @@ const NOTIF_PREFS = [
   { key: 'notablePlays', label: 'Notable plays',         desc: 'Push for home runs, touchdowns, and big moments' },
 ]
 
+function VoiceAnnouncePref() {
+  const [enabled, setEnabled] = useState(() => {
+    try { return localStorage.getItem('ss_voice_announce') === 'true' } catch { return false }
+  })
+  function toggle() {
+    const next = !enabled
+    setEnabled(next)
+    try { localStorage.setItem('ss_voice_announce', String(next)) } catch {}
+  }
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <p className="text-sm font-semibold text-white">Voice play announcements</p>
+        <p className="text-xs text-gray-500">Speak play descriptions aloud during games (scorekeeper only)</p>
+      </div>
+      <button
+        onClick={toggle}
+        className={`relative flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none ${
+          enabled ? 'bg-blue-600' : 'bg-gray-700'
+        }`}
+      >
+        <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+          enabled ? 'translate-x-5' : 'translate-x-0'
+        }`} />
+      </button>
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -257,6 +286,12 @@ export default function SettingsPage() {
               </button>
             </div>
           ))}
+        </div>
+
+        {/* Voice announcements — local preference */}
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Scorekeeper</h2>
+        <div className="card mb-6">
+          <VoiceAnnouncePref />
         </div>
 
         {/* Plan tiers */}

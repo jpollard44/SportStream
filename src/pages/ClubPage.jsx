@@ -10,12 +10,14 @@ import {
 import { uploadClubLogo, uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate } from '../lib/formatters'
 import { SPORT_POSITIONS } from '../lib/baseballHelpers'
+import { useLiveGamePlayers } from '../hooks/useLiveGamePlayers'
 
 const GAME_TYPES = ['regular', 'playoff', 'scrimmage']
 
 export default function ClubPage() {
   const { clubId } = useParams()
   const { club, players, loading } = useClub(clubId)
+  const { livePlayerIds, liveGameId } = useLiveGamePlayers(clubId)
   const [games, setGames] = useState([])
   const [schedule, setSchedule] = useState([])
 
@@ -188,6 +190,7 @@ export default function ClubPage() {
         position: editingPlayer.position,
         email: editingPlayer.email || '',
         phone: editingPlayer.phone || '',
+        status: editingPlayer.status || 'active',
       })
       setEditingPlayer(null)
     } finally { setSaving(false) }
@@ -198,6 +201,7 @@ export default function ClubPage() {
       id: p.id, name: p.name, nickname: p.nickname || '',
       number: p.number || '', position: p.position || '',
       email: p.email || '', phone: p.phone || '',
+      status: p.status || 'active',
     })
   }
 
@@ -334,37 +338,54 @@ export default function ClubPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {games.map((game) => (
-                <div key={game.id} className="card flex items-start justify-between gap-3 p-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold text-white">
-                      {game.homeTeam} <span className="text-gray-500">vs</span> {game.awayTeam}
-                    </p>
-                    <p className="text-sm text-gray-400">{formatDate(game.createdAt)}</p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <StatusBadge status={game.status} />
-                      <span className="text-xs font-bold text-white">{game.homeScore}–{game.awayScore}</span>
+              {[...games].sort((a, b) => {
+                const aLive = a.status === 'live' ? 0 : 1
+                const bLive = b.status === 'live' ? 0 : 1
+                return aLive - bLive
+              }).map((game) => {
+                const isLive = game.status === 'live'
+                return (
+                  <div key={game.id} className={`flex items-start justify-between gap-3 p-4 rounded-2xl ring-1 ${
+                    isLive
+                      ? 'bg-[#1a1f2e] ring-green-800/50 border-l-2 border-green-500'
+                      : 'bg-[#1a1f2e] ring-white/5'
+                  }`}>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-white">
+                        {game.homeTeam} <span className="text-gray-500">vs</span> {game.awayTeam}
+                      </p>
+                      <p className="text-sm text-gray-400">{formatDate(game.createdAt)}</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <StatusBadge status={game.status} />
+                        {isLive && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-900/60 px-2 py-0.5 text-[10px] font-bold text-green-300 ring-1 ring-green-800/40">
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
+                            LIVE
+                          </span>
+                        )}
+                        <span className="text-xs font-bold text-white">{game.homeScore}–{game.awayScore}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5">
+                      {(game.status === 'live' || game.status === 'setup') && (
+                        <Link to={`/scorekeeper/${game.id}`}
+                          className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500">
+                          Open Scorer
+                        </Link>
+                      )}
+                      <Link to={`/game/${game.id}`} className="text-xs text-gray-500 hover:text-white">View →</Link>
+                      {game.status !== 'final' && (
+                        <button onClick={() => markGameFinal(game.id)} className="text-xs text-orange-400 hover:text-orange-300">
+                          Mark Final
+                        </button>
+                      )}
+                      <button onClick={() => setConfirmDeleteGame(game.id)} className="text-xs text-red-700 hover:text-red-400">
+                        Delete
+                      </button>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1.5">
-                    {(game.status === 'live' || game.status === 'setup') && (
-                      <Link to={`/scorekeeper/${game.id}`}
-                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500">
-                        Open Scorer
-                      </Link>
-                    )}
-                    <Link to={`/game/${game.id}`} className="text-xs text-gray-500 hover:text-white">View →</Link>
-                    {game.status !== 'final' && (
-                      <button onClick={() => markGameFinal(game.id)} className="text-xs text-orange-400 hover:text-orange-300">
-                        Mark Final
-                      </button>
-                    )}
-                    <button onClick={() => setConfirmDeleteGame(game.id)} className="text-xs text-red-700 hover:text-red-400">
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </section>
@@ -452,6 +473,15 @@ export default function ClubPage() {
                         <option value="">Position</option>
                         {positions.map((pos) => <option key={pos} value={pos}>{pos}</option>)}
                       </select>
+                      <select
+                        value={editingPlayer.status || 'active'}
+                        onChange={(e) => setEditingPlayer((ep) => ({ ...ep, status: e.target.value }))}
+                        className="input flex-1 text-sm py-1.5"
+                      >
+                        <option value="active">Active</option>
+                        <option value="injured">Injured</option>
+                        <option value="suspended">Suspended</option>
+                      </select>
                     </div>
                     <input
                       type="email"
@@ -507,7 +537,18 @@ export default function ClubPage() {
                           {p.email && <span className="truncate max-w-[140px]">{p.email}</span>}
                           {p.phone && <span>{p.phone}</span>}
                         </div>
+                        {p.status && p.status !== 'active' && (
+                          <span className={`inline-block rounded-full px-1.5 py-px text-[9px] font-bold ${
+                            p.status === 'injured' ? 'bg-yellow-900/50 text-yellow-300' :
+                            p.status === 'suspended' ? 'bg-red-900/50 text-red-300' : ''
+                          }`}>
+                            {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+                          </span>
+                        )}
                       </Link>
+                      {livePlayerIds.has(p.id) && (
+                        <span title="Currently in a live game" className="ml-1 inline-block h-2 w-2 animate-pulse rounded-full bg-green-400" />
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-3 ml-2">
                       <button onClick={() => startEdit(p)} className="text-xs text-gray-500 hover:text-blue-400">Edit</button>
@@ -729,15 +770,22 @@ export default function ClubPage() {
 }
 
 function StatusBadge({ status }) {
-  const config = {
-    scheduled: { label: 'Scheduled', cls: 'bg-indigo-900/50 text-indigo-300' },
-    setup:     { label: 'Setup',     cls: 'bg-yellow-900/50 text-yellow-300' },
-    live:      { label: '● LIVE',    cls: 'bg-red-900/50 text-red-400' },
-    paused:    { label: 'Paused',    cls: 'bg-gray-700 text-gray-300' },
-    final:     { label: 'Final',     cls: 'bg-gray-800 text-gray-400' },
+  const cfg = {
+    live:      { bg: 'bg-green-900/60 text-green-300 ring-1 ring-green-800/40', label: 'LIVE' },
+    active:    { bg: 'bg-green-900/60 text-green-300 ring-1 ring-green-800/40', label: 'LIVE' },
+    setup:     { bg: 'bg-blue-900/50 text-blue-300',   label: 'Upcoming' },
+    scheduled: { bg: 'bg-blue-900/50 text-blue-300',   label: 'Scheduled' },
+    final:     { bg: 'bg-gray-800 text-gray-400',       label: 'Final' },
   }
-  const { label, cls } = config[status] || config.setup
-  return <span className={`badge ${cls}`}>{label}</span>
+  const c = cfg[status] || { bg: 'bg-gray-800 text-gray-400', label: status || '—' }
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${c.bg}`}>
+      {(status === 'live' || status === 'active') && (
+        <span className="mr-1 h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
+      )}
+      {c.label}
+    </span>
+  )
 }
 
 // ── Schedule List ─────────────────────────────────────────────────────────────

@@ -335,7 +335,7 @@ export default function LeaguePage() {
               return (
                 <div
                   key={g.id}
-                  className={`card transition ${isDragged ? 'opacity-40 ring-2 ring-indigo-500' : ''}`}
+                  className={`card transition ${isDragged ? 'opacity-40 ring-2 ring-indigo-500' : ''} ${isLive ? 'border-l-2 border-green-500' : ''}`}
                   draggable={isHost}
                   onDragStart={() => setDraggedGameId(g.id)}
                   onDragOver={(e) => e.preventDefault()}
@@ -350,8 +350,9 @@ export default function LeaguePage() {
                           <span className="text-[9px] text-gray-700 select-none">⠿</span>
                         )}
                         {isLive && (
-                          <span className="flex items-center gap-1 rounded-full bg-red-900/50 px-2 py-0.5 text-[10px] font-bold text-red-300">
-                            <span className="h-1 w-1 animate-pulse rounded-full bg-red-400" /> LIVE
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-900/60 px-2 py-0.5 text-[10px] font-bold text-green-300 ring-1 ring-green-800/40">
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
+                            LIVE
                           </span>
                         )}
                         {isFinal && <span className="text-[10px] font-bold uppercase text-gray-500">Final</span>}

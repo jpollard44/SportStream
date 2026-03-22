@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { PageSpinner } from '../components/ui'
 import { getPlayer, getClub, getPlayerHistoricalPlays, subscribeToUser, followPlayer, unfollowPlayer, updatePlayer } from '../firebase/firestore'
+import { useLiveGamePlayers } from '../hooks/useLiveGamePlayers'
 import { uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate, nickDisplay } from '../lib/formatters'
 import {
@@ -248,6 +249,9 @@ export default function PlayerPage() {
     return subscribeToUser(user.uid, setUserDoc)
   }, [user])
 
+  const { livePlayerIds, liveGameId } = useLiveGamePlayers(clubId)
+  const isLiveNow = livePlayerIds.has(playerId)
+
   const isFollowing = userDoc?.followedPlayers?.some((p) => p.playerId === playerId) ?? false
 
   async function handleToggleFollow() {
@@ -351,6 +355,15 @@ export default function PlayerPage() {
                   <span className="rounded-full bg-[#242938] px-2.5 py-0.5 text-xs text-gray-400">
                     {player.position}
                   </span>
+                )}
+                {isLiveNow && liveGameId && (
+                  <Link
+                    to={`/game/${liveGameId}`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-green-900/60 px-3 py-1 text-xs font-bold text-green-300 ring-1 ring-green-800/40 hover:bg-green-900/80 transition"
+                  >
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
+                    LIVE NOW — Watch →
+                  </Link>
                 )}
               </div>
               {player.bio && (

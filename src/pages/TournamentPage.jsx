@@ -486,6 +486,7 @@ export default function TournamentPage() {
           <BracketView
             tournament={tournament}
             teams={acceptedTeams}
+            games={games}
             isHost={isHost}
             onSchedule={(match, bType) => { setScheduleMatch({ ...match, _bracketType: bType }) }}
             onDeclare={(match, bType) => setDeclareMatch({ ...match, _bracketType: bType })}
@@ -531,8 +532,9 @@ export default function TournamentPage() {
                   <div className="mb-1 flex flex-wrap items-center gap-1.5">
                     {isHost && <span className="text-[9px] text-gray-700 select-none">⠿</span>}
                     {isLive && (
-                      <span className="flex items-center gap-1 rounded-full bg-green-900/60 px-2 py-0.5 text-[10px] font-bold text-green-300">
-                        <span className="h-1 w-1 animate-pulse rounded-full bg-green-400" /> LIVE
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-900/60 px-2 py-0.5 text-[10px] font-bold text-green-300 ring-1 ring-green-800/40">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
+                        LIVE
                       </span>
                     )}
                     {isFinal && <span className="text-[10px] font-bold uppercase text-gray-500">Final</span>}

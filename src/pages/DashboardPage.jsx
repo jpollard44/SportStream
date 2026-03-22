@@ -448,7 +448,7 @@ function RoleHero({ userRole, clubs, liveGames, followedGames, claimedProfile, o
 
 // ── Home tab ───────────────────────────────────────────────────────────────────
 
-function HomeTab({ clubs, clubRecords, liveGames, followedGames, claimedProfile, userRole, onCreateClub, onStartGame, setTab }) {
+function HomeTab({ clubs, clubRecords, liveGames, followedClubs, followedGames, claimedProfile, userRole, onCreateClub, onStartGame, setTab }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -466,6 +466,43 @@ function HomeTab({ clubs, clubRecords, liveGames, followedGames, claimedProfile,
 
   return (
     <div className="space-y-7 pt-4">
+
+      {/* Live Now Hero Card */}
+      {(() => {
+        const myClubIds = new Set([
+          ...(clubs || []).map(c => c.id),
+          ...(followedClubs || []),
+        ])
+        const myLiveGames = (liveGames || []).filter(g =>
+          myClubIds.has(g.clubId) || myClubIds.has(g.awayClubId)
+        )
+        if (!myLiveGames.length) return null
+        return (
+          <div className="mb-4 mx-5">
+            {myLiveGames.slice(0, 2).map((g) => (
+              <Link
+                key={g.id}
+                to={`/game/${g.id}`}
+                className="flex items-center justify-between rounded-2xl bg-green-950/40 border border-green-800/40 px-4 py-3 mb-2 hover:bg-green-950/60 transition"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-green-400" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-green-300 uppercase tracking-wider">🔴 Live Now</p>
+                    <p className="truncate text-sm font-semibold text-white">
+                      {g.homeTeam} <span className="text-gray-400 font-normal">vs</span> {g.awayTeam}
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 ml-3 flex items-center gap-2">
+                  <span className="font-mono font-bold text-white">{g.homeScore}–{g.awayScore}</span>
+                  <span className="rounded-full bg-green-700 px-2 py-0.5 text-xs font-semibold text-white">Watch →</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )
+      })()}
 
       {/* Role-specific hero */}
       <RoleHero

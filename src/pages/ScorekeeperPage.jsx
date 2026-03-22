@@ -15,6 +15,48 @@ import UndoButton from '../components/scorekeeper/UndoButton'
 import StreamButton from '../components/scorekeeper/StreamButton'
 import VoiceButton from '../components/scorekeeper/VoiceButton'
 
+// ── Voice announcement ────────────────────────────────────────────────────────
+
+function buildAnnouncement(type, playerName, teamName, sport) {
+  const p = playerName || teamName || 'Team'
+  const t = teamName || 'Team'
+  const map = {
+    // Basketball
+    score_3:    `${p} hits a three pointer!`,
+    score_2:    `${p} scores!`,
+    ft_made:    `${p} makes the free throw.`,
+    rebound:    `${p} with the rebound.`,
+    assist:     `${p} with the assist.`,
+    steal:      `${p} with the steal!`,
+    block:      `${p} with the block!`,
+    foul:       `Foul on ${p}.`,
+    turnover:   `Turnover — ${p}.`,
+    // Soccer
+    goal:       `GOAL! ${p} scores for ${t}!`,
+    penalty_goal: `Penalty goal! ${p} scores!`,
+    save:       `Great save by ${p}!`,
+    // Flag Football
+    touchdown:  `Touchdown ${t}! ${p} finds pay dirt!`,
+    field_goal: `Field goal! ${p} is good!`,
+    interception: `Interception by ${p}!`,
+    sack:       `Sack by ${p}!`,
+    extra_point: `Extra point good!`,
+    two_point:   `Two point conversion!`,
+  }
+  return map[type] || `${p} — ${type.replace(/_/g, ' ')}.`
+}
+
+function announcePlay(type, playerName, teamName, sport) {
+  if (!window.speechSynthesis) return
+  const text = buildAnnouncement(type, playerName, teamName, sport)
+  const utt = new SpeechSynthesisUtterance(text)
+  utt.rate = 1.1
+  utt.pitch = 1.2
+  utt.volume = 1.0
+  window.speechSynthesis.cancel()
+  window.speechSynthesis.speak(utt)
+}
+
 // ── Sport play configurations ─────────────────────────────────────────────────
 
 const SPORT_CONFIG = {
@@ -186,6 +228,16 @@ export default function ScorekeeperPage() {
   const { displaySeconds, startClock, pauseClock, nextPeriod } = useGameClock(game)
   const { isOnline, queueLength, enqueue } = useOfflineQueue()
 
+  const [voiceEnabled, setVoiceEnabled] = useState(() => {
+    try { return localStorage.getItem('ss_voice_announce') === 'true' } catch { return false }
+  })
+
+  function toggleVoice() {
+    const next = !voiceEnabled
+    setVoiceEnabled(next)
+    try { localStorage.setItem('ss_voice_announce', String(next)) } catch {}
+  }
+
   const [players, setPlayers]                   = useState([])
   const [selectedPlayerId, setSelectedPlayerId] = useState(null)
   const [activeTeam, setActiveTeam]             = useState('home')
@@ -253,6 +305,10 @@ export default function ScorekeeperPage() {
       } else {
         await enqueue(gameId, event)
         showToast('Play queued — will sync when online')
+      }
+      if (voiceEnabled) {
+        const teamName = activeTeam === 'home' ? game.homeTeam : game.awayTeam
+        announcePlay(type, selectedPlayer?.name || null, teamName, sport)
       }
       const n = playCount + 1
       setPlayCount(n)
@@ -362,6 +418,17 @@ export default function ScorekeeperPage() {
           className="flex-shrink-0 text-xs text-gray-400 hover:text-gray-200 transition"
         >
           ⬆ Share
+        </button>
+        <button
+          onClick={toggleVoice}
+          title={voiceEnabled ? 'Voice on — tap to mute' : 'Voice off — tap to enable'}
+          className={`ml-auto flex-shrink-0 rounded-lg px-2 py-1 text-sm transition ${
+            voiceEnabled
+              ? 'bg-green-800/40 text-green-300 hover:bg-green-800/60'
+              : 'text-gray-600 hover:text-gray-300'
+          }`}
+        >
+          {voiceEnabled ? '🔊' : '🔇'}
         </button>
       </div>
 

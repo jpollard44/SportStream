@@ -111,12 +111,19 @@ function HighlightCard({ highlight, uid, onSignInRequired }) {
   }
 
   async function handleShare() {
-    const url = `${window.location.origin}/game/${highlight.gameId}`
-    const text = `${highlight.playerName} ${highlight.playDescription} — watch on SportStream!`
+    const h = highlight
+    const shareText = `🏆 ${h.playerName} just ${h.playDescription} for ${h.clubName}! Watch on SportStream`
+    const shareUrl = `${window.location.origin}/game/${h.gameId}`
     if (navigator.share) {
-      try { await navigator.share({ title: 'SportStream Highlight', text, url }) } catch {}
+      try {
+        await navigator.share({
+          title: 'SportStream Highlight',
+          text: shareText,
+          url: shareUrl,
+        })
+      } catch {}
     } else {
-      await navigator.clipboard.writeText(url)
+      await navigator.clipboard.writeText(`${shareText}: ${shareUrl}`)
       setSharing(true)
       setTimeout(() => setSharing(false), 2000)
     }
@@ -155,9 +162,17 @@ function HighlightCard({ highlight, uid, onSignInRequired }) {
             <span>{relativeTime(highlight.createdAt)}</span>
           </div>
         </div>
-        {highlight.nominatedForAward && (
-          <span className="shrink-0 text-xs font-bold text-yellow-500">🏆 Nominated</span>
-        )}
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {highlight.gameStatus === 'live' && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-900/60 px-2 py-0.5 text-[10px] font-bold text-green-300 ring-1 ring-green-800/40">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
+              LIVE
+            </span>
+          )}
+          {highlight.nominatedForAward && (
+            <span className="text-xs font-bold text-yellow-500">🏆 Nominated</span>
+          )}
+        </div>
       </div>
 
       {/* Play description */}
@@ -191,6 +206,11 @@ function HighlightCard({ highlight, uid, onSignInRequired }) {
       {/* Reactions + actions */}
       <div className="border-t border-white/5 px-4 py-3 space-y-3">
         <ReactionStrip highlight={highlight} uid={uid} onSignInRequired={onSignInRequired} />
+
+        <button className="mt-2 flex w-full items-center gap-2 rounded-xl bg-white/3 px-3 py-2 text-left text-xs text-gray-500 hover:bg-white/5 hover:text-gray-400 transition">
+          <span>💬</span>
+          <span>Add a comment</span>
+        </button>
 
         <div className="flex items-center gap-3">
           {uid && !nominated && (
