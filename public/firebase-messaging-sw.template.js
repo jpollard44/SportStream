@@ -2,12 +2,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js
 importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js')
 
 firebase.initializeApp({
-  apiKey: 'AIzaSyAIgkVC_sn0C6Eff7UTgsJpQQ69ZlS7FYU',
-  authDomain: 'sportstream-91d22.firebaseapp.com',
-  projectId: 'sportstream-91d22',
-  storageBucket: 'sportstream-91d22.firebasestorage.app',
-  messagingSenderId: '579645806369',
-  appId: '1:579645806369:web:e57bb3bee753a93bcf5060',
+  apiKey:            '__VITE_FIREBASE_API_KEY__',
+  authDomain:        '__VITE_FIREBASE_AUTH_DOMAIN__',
+  projectId:         '__VITE_FIREBASE_PROJECT_ID__',
+  storageBucket:     '__VITE_FIREBASE_STORAGE_BUCKET__',
+  messagingSenderId: '__VITE_FIREBASE_MESSAGING_SENDER_ID__',
+  appId:             '__VITE_FIREBASE_APP_ID__',
 })
 
 const messaging = firebase.messaging()

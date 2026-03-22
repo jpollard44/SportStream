@@ -11,3 +11,7 @@ firebase-debug.log
 firestore-debug.log
 ui-debug.log
 .vscode/
+
+# Generated at build time from public/firebase-messaging-sw.template.js
+# Contains Firebase config — do NOT commit
+public/firebase-messaging-sw.js
