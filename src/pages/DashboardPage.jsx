@@ -166,21 +166,14 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-24">
-        {tab === 'home'      && <HomeTab      {...sharedProps} onCreateClub={() => setShowCreate(true)} onStartGame={handleStartGame} setTab={setTab} />}
-        {tab === 'clubs'     && <ClubsTab     {...sharedProps} onCreateClub={() => setShowCreate(true)} />}
-        {tab === 'events'    && <EventsTab    {...sharedProps} />}
-        {tab === 'following' && <FollowingTab {...sharedProps} />}
-      </div>
-
-      {/* Dashboard-internal tab nav (above the global bottom nav) */}
-      <div className="fixed bottom-16 left-0 right-0 z-30 sm:bottom-0 flex border-t border-white/5"
-        style={{ background: 'rgba(15,17,23,0.95)', backdropFilter: 'blur(16px)' }}
+      {/* Dashboard tab strip — inline, sticky below header */}
+      <div className="sticky top-0 z-30 flex border-b border-white/5"
+        style={{ background: 'rgba(15,17,23,0.97)', backdropFilter: 'blur(16px)' }}
       >
         {[
-          { id: 'home',      label: 'Home',     icon: '⊞' },
-          { id: 'clubs',     label: 'My Teams', icon: '🏟' },
-          { id: 'events',    label: 'Events',   icon: '🏆' },
+          { id: 'home',      label: 'Home',      icon: '⊞' },
+          { id: 'clubs',     label: 'My Teams',  icon: '🏟' },
+          { id: 'events',    label: 'Events',    icon: '🏆' },
           { id: 'following', label: 'Following', icon: '⭐' },
         ].map(({ id, label, icon }) => (
           <button
@@ -193,10 +186,17 @@ export default function DashboardPage() {
             <span className="text-base leading-none">{icon}</span>
             {label}
             {tab === id && (
-              <span className="absolute top-0 left-1/4 right-1/4 h-0.5 rounded-full bg-blue-500" />
+              <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 rounded-full bg-blue-500" />
             )}
           </button>
         ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto pb-20">
+        {tab === 'home'      && <HomeTab      {...sharedProps} onCreateClub={() => setShowCreate(true)} onStartGame={handleStartGame} setTab={setTab} />}
+        {tab === 'clubs'     && <ClubsTab     {...sharedProps} onCreateClub={() => setShowCreate(true)} />}
+        {tab === 'events'    && <EventsTab    {...sharedProps} />}
+        {tab === 'following' && <FollowingTab {...sharedProps} />}
       </div>
 
       {/* Create team modal */}
