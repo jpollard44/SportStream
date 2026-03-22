@@ -352,6 +352,79 @@ exports.onNewPlay = onDocumentCreated('games/{gameId}/plays/{playId}', async (ev
 
   if (!playerId) return
 
+  // ── Auto-generate highlight document for notable plays ───────────────────
+  const HIGHLIGHT_TYPES = {
+    // Baseball / Softball
+    homeRun:     'crushed a HOME RUN 💥',
+    triple:      'legged out a TRIPLE 🔥',
+    // Basketball
+    score_3:     'drained a 3-POINTER 🎯',
+    block:       'threw down a BLOCK 🛡',
+    steal:       'picked a STEAL ✋',
+    // Soccer
+    goal:        'scored a GOAL ⚽',
+    // Flag-football
+    touchdown:   'scored a TOUCHDOWN 🏈',
+    field_goal:  'nailed a FIELD GOAL 🏈',
+    interception: 'made an INTERCEPTION 🙌',
+    sack:        'recorded a SACK 💪',
+    // Volleyball
+    ace:         'served an ACE 🎾',
+    kill:        'hammered a KILL 💥',
+  }
+
+  const highlightDesc = HIGHLIGHT_TYPES[play.type]
+  if (highlightDesc) {
+    try {
+      const gameSnap = await db.collection('games').doc(gameId).get()
+      const game = gameSnap.exists ? gameSnap.data() : {}
+
+      const now = new Date()
+      // ISO week number
+      const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
+      const dn = d.getUTCDay() || 7
+      d.setUTCDate(d.getUTCDate() + 4 - dn)
+      const ys = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+      const weekNum = Math.ceil((((d - ys) / 86400000) + 1) / 7)
+
+      // Build game context string
+      let gameContext = ''
+      if (game.sport === 'baseball' || game.sport === 'softball') {
+        const half = game.inningHalf === 'top' ? 'Top' : 'Bot'
+        gameContext = `${half} ${game.inning || 1} · ${game.homeTeam} ${game.homeScore || 0}, ${game.awayTeam} ${game.awayScore || 0}`
+      } else {
+        const period = game.period ? `Q${game.period}` : ''
+        gameContext = `${period ? period + ' · ' : ''}${game.homeTeam} ${game.homeScore || 0}, ${game.awayTeam} ${game.awayScore || 0}`
+      }
+
+      await db.collection('highlights').add({
+        playerId:          playerId,
+        playerName:        play.playerName || '',
+        playerPhoto:       play.playerPhoto || null,
+        clubId:            play.clubId || game.clubId || '',
+        clubName:          game.homeTeam || '',
+        gameId:            gameId,
+        sport:             game.sport || '',
+        playType:          play.type,
+        playDescription:   highlightDesc,
+        gameContext:       gameContext,
+        homeTeam:          game.homeTeam || '',
+        awayTeam:          game.awayTeam || '',
+        leagueId:          game.leagueId || null,
+        tournamentId:      game.tournamentId || null,
+        createdAt:         admin.firestore.FieldValue.serverTimestamp(),
+        reactions:         { fire: 0, electric: 0, clutch: 0, unbelievable: 0, applause: 0 },
+        reactionCount:     0,
+        nominatedForAward: false,
+        weekNumber:        weekNum,
+        year:              now.getFullYear(),
+        manualVideoUrl:    null,
+      })
+    } catch (e) {
+      console.error('onNewPlay highlight creation error:', e)
+    }
+  }
+
   // Find users who follow this player
   const usersSnap = await db.collection('users')
     .where('followedPlayers', 'array-contains-any',
@@ -594,5 +667,78 @@ exports.onGameLive = onDocumentUpdated('games/{gameId}', async (event) => {
     }
   } catch (e) {
     console.error('onGameLive FCM error:', e)
+  }
+})
+
+// ── compileWeeklyTop10 — runs every Monday at 12:01 AM UTC ────────────────────
+const { onSchedule } = require('firebase-functions/v2/scheduler')
+
+exports.compileWeeklyTop10 = onSchedule('every monday 00:01', async () => {
+  const now = new Date()
+
+  // ISO week key
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
+  const dn = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - dn)
+  const ys = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  const weekNum = Math.ceil((((d - ys) / 86400000) + 1) / 7)
+  const weekKey = `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`
+
+  // Week bounds (past 7 days)
+  const weekEnd   = new Date(now)
+  weekEnd.setHours(0, 1, 0, 0)
+  const weekStart = new Date(weekEnd)
+  weekStart.setDate(weekStart.getDate() - 7)
+
+  try {
+    const snap = await db.collection('highlights')
+      .where('createdAt', '>=', weekStart)
+      .where('createdAt', '<', weekEnd)
+      .orderBy('createdAt')
+      .get()
+
+    const sorted = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.reactionCount || 0) - (a.reactionCount || 0))
+      .slice(0, 10)
+
+    await db.collection('weeklyTop10').doc(weekKey).set({
+      highlights: sorted.map((h) => h.id),
+      votingOpen: true,
+      weekStart:  admin.firestore.Timestamp.fromDate(weekStart),
+      weekEnd:    admin.firestore.Timestamp.fromDate(weekEnd),
+      updatedAt:  admin.firestore.FieldValue.serverTimestamp(),
+    })
+
+    // Notify all users (best-effort)
+    const usersSnap = await db.collection('users').limit(500).get()
+    const tokens = []
+    usersSnap.docs.forEach((u) => {
+      const t = u.data().fcmTokens || []
+      tokens.push(...t)
+    })
+
+    if (tokens.length > 0) {
+      const chunks = []
+      for (let i = 0; i < tokens.length; i += 500) chunks.push(tokens.slice(i, i + 500))
+      await Promise.all(chunks.map((chunk) =>
+        admin.messaging().sendEachForMulticast({
+          tokens: chunk,
+          notification: {
+            title: '🏆 Top 10 Plays of the Week!',
+            body:  'This week\'s best moments are in — come vote!',
+          },
+          data: { url: 'https://sportstream-91d22.web.app/wall-of-fame' },
+          webpush: {
+            notification: { icon: 'https://sportstream-91d22.web.app/favicon.svg' },
+            fcmOptions: { link: 'https://sportstream-91d22.web.app/wall-of-fame' },
+          },
+        }).catch(() => {})
+      ))
+    }
+
+    console.log(`compileWeeklyTop10: wrote ${sorted.length} highlights for ${weekKey}`)
+  } catch (e) {
+    console.error('compileWeeklyTop10 error:', e)
   }
 })

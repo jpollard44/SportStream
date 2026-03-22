@@ -18,51 +18,51 @@ function getNavItems(roles = []) {
 
   if (r.includes('fan') && !r.includes('host') && !r.includes('manager')) {
     return [
-      { to: '/dashboard', label: 'Home',      Icon: HomeIcon },
-      { to: '/find',      label: 'Discover',  Icon: SearchIcon },
-      { to: '/dashboard', label: 'Following', Icon: StarIcon, tab: 'following' },
-      { to: '/tournaments', label: 'Events',  Icon: TrophyIcon },
-      { to: '/settings',  label: 'Profile',   Icon: ProfileIcon },
+      { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
+      { to: '/find',         label: 'Discover',  Icon: SearchIcon },
+      { to: '/dashboard',    label: 'Following', Icon: StarIcon, tab: 'following' },
+      { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
+      { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
     ]
   }
 
   if (r.includes('scorekeeper') && !r.includes('host') && !r.includes('manager') && !r.includes('player')) {
     return [
-      { to: '/join',      label: 'Join Game', Icon: JoinIcon },
-      { to: '/dashboard', label: 'Home',      Icon: HomeIcon },
-      { to: '/find',      label: 'Find',      Icon: SearchIcon },
-      { to: '/tournaments', label: 'Events',  Icon: TrophyIcon },
-      { to: '/settings',  label: 'Profile',   Icon: ProfileIcon },
+      { to: '/join',         label: 'Join Game', Icon: JoinIcon },
+      { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
+      { to: '/find',         label: 'Find',      Icon: SearchIcon },
+      { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
+      { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
     ]
   }
 
   if (r.includes('player') && !r.includes('host') && !r.includes('manager')) {
     return [
-      { to: '/dashboard', label: 'Home',      Icon: HomeIcon },
-      { to: '/dashboard', label: 'My Team',   Icon: TeamIcon, tab: 'clubs' },
-      { to: '/find',      label: 'Find',      Icon: SearchIcon },
-      { to: '/dashboard', label: 'Following', Icon: StarIcon, tab: 'following' },
-      { to: '/settings',  label: 'Profile',   Icon: ProfileIcon },
+      { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
+      { to: '/dashboard',    label: 'My Team',   Icon: TeamIcon, tab: 'clubs' },
+      { to: '/find',         label: 'Find',      Icon: SearchIcon },
+      { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
+      { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
     ]
   }
 
   if (r.includes('manager') && !r.includes('host')) {
     return [
-      { to: '/dashboard', label: 'Home',      Icon: HomeIcon },
-      { to: '/dashboard', label: 'Roster',    Icon: TeamIcon, tab: 'clubs' },
-      { to: '/dashboard', label: 'Schedule',  Icon: CalendarIcon, tab: 'events' },
-      { to: '/find',      label: 'Find',      Icon: SearchIcon },
-      { to: '/settings',  label: 'Profile',   Icon: ProfileIcon },
+      { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
+      { to: '/dashboard',    label: 'Roster',    Icon: TeamIcon, tab: 'clubs' },
+      { to: '/dashboard',    label: 'Schedule',  Icon: CalendarIcon, tab: 'events' },
+      { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
+      { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
     ]
   }
 
   // Host or default
   return [
-    { to: '/dashboard', label: 'Home',      Icon: HomeIcon },
-    { to: '/dashboard', label: 'My Teams',  Icon: TeamIcon, tab: 'clubs' },
-    { to: '/dashboard', label: 'Events',    Icon: TrophyIcon, tab: 'events' },
-    { to: '/find',      label: 'Discover',  Icon: SearchIcon },
-    { to: '/settings',  label: 'Profile',   Icon: ProfileIcon },
+    { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
+    { to: '/dashboard',    label: 'My Teams',  Icon: TeamIcon, tab: 'clubs' },
+    { to: '/dashboard',    label: 'Events',    Icon: TrophyIcon, tab: 'events' },
+    { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
+    { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
   ]
 }
 
@@ -86,11 +86,12 @@ export default function BottomNav() {
   const path = location.pathname
 
   function isActive(item) {
-    if (item.to === '/settings') return path === '/settings'
-    if (item.to === '/join')     return path === '/join'
-    if (item.to === '/find')     return path === '/find'
-    if (item.to === '/tournaments') return path.startsWith('/tournament') || path.startsWith('/league')
-    if (item.to === '/dashboard') return path === '/dashboard' || path.startsWith('/club')
+    if (item.to === '/settings')     return path === '/settings'
+    if (item.to === '/join')         return path === '/join'
+    if (item.to === '/find')         return path === '/find'
+    if (item.to === '/wall-of-fame') return path === '/wall-of-fame'
+    if (item.to === '/tournaments')  return path.startsWith('/tournament') || path.startsWith('/league')
+    if (item.to === '/dashboard')    return path === '/dashboard' || path.startsWith('/club')
     return false
   }
 
@@ -201,6 +202,16 @@ function CalendarIcon({ active }) {
       <line x1="16" y1="2" x2="16" y2="6" />
       <line x1="8" y1="2" x2="8" y2="6" />
       <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  )
+}
+
+function FameIcon({ active }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="6" />
+      <path d="M8 21h8M12 17v4" />
+      <path d="M9 8l1.5 3L12 8.5l1.5 2.5L15 8" strokeWidth="1.5" />
     </svg>
   )
 }
