@@ -542,9 +542,9 @@ function PreGameCard({ game }) {
       {(homeLineup.length > 0 || awayLineup.length > 0) && (
         <div className="grid grid-cols-2 gap-3">
           {[
-            { label: game.homeTeam, lineup: homeLineup },
-            { label: game.awayTeam, lineup: awayLineup },
-          ].map(({ label, lineup }) => (
+            { label: game.homeTeam, lineup: homeLineup, clubId: game.clubId },
+            { label: game.awayTeam, lineup: awayLineup, clubId: game.awayClubId },
+          ].map(({ label, lineup, clubId: teamClubId }) => (
             <div key={label} className="rounded-2xl bg-gray-900 p-3">
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">{label}</p>
               {lineup.length === 0 ? (
@@ -556,7 +556,16 @@ function PreGameCard({ game }) {
                       <span className="w-5 text-center font-mono text-[10px] text-gray-600">
                         {p.playerNumber || '—'}
                       </span>
-                      <span className="truncate text-xs text-gray-300">{shortName(p.playerName)}</span>
+                      {p.playerId && teamClubId ? (
+                        <Link
+                          to={`/player/${teamClubId}/${p.playerId}`}
+                          className="truncate text-xs text-gray-300 hover:text-blue-300 transition hover:underline"
+                        >
+                          {shortName(p.playerName)}
+                        </Link>
+                      ) : (
+                        <span className="truncate text-xs text-gray-300">{shortName(p.playerName)}</span>
+                      )}
                     </div>
                   ))}
                   {lineup.length > 5 && (
@@ -643,7 +652,16 @@ function BaseballScoreTab({ game, plays }) {
                   {currentBatter.playerNumber || '?'}
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-white">{shortName(currentBatter.playerName)}</p>
+                  {currentBatter.playerId && (battingTeam === 'home' ? game.clubId : game.awayClubId) ? (
+                    <Link
+                      to={`/player/${battingTeam === 'home' ? game.clubId : game.awayClubId}/${currentBatter.playerId}`}
+                      className="text-xl font-bold text-white hover:text-blue-300 transition hover:underline"
+                    >
+                      {shortName(currentBatter.playerName)}
+                    </Link>
+                  ) : (
+                    <p className="text-xl font-bold text-white">{shortName(currentBatter.playerName)}</p>
+                  )}
                   {currentBatter.position && (
                     <p className="text-sm text-gray-500">{currentBatter.position}</p>
                   )}
@@ -660,7 +678,16 @@ function BaseballScoreTab({ game, plays }) {
               </div>
               <div>
                 <p className="text-[10px] text-gray-600">On deck</p>
-                <p className="text-sm text-gray-300">{shortName(onDeck.playerName)}</p>
+                {onDeck.playerId && (battingTeam === 'home' ? game.clubId : game.awayClubId) ? (
+                  <Link
+                    to={`/player/${battingTeam === 'home' ? game.clubId : game.awayClubId}/${onDeck.playerId}`}
+                    className="text-sm text-gray-300 hover:text-blue-300 transition hover:underline"
+                  >
+                    {shortName(onDeck.playerName)}
+                  </Link>
+                ) : (
+                  <p className="text-sm text-gray-300">{shortName(onDeck.playerName)}</p>
+                )}
               </div>
             </div>
           )}
@@ -678,9 +705,18 @@ function BaseballScoreTab({ game, plays }) {
                   runner ? (
                     <div key={base} className="flex items-center gap-3 px-4 py-2.5">
                       <span className="w-20 text-xs font-bold text-yellow-400">{label}</span>
-                      <span className="text-sm text-white">
-                        {runner.playerNumber ? `#${runner.playerNumber} ` : ''}{shortName(runner.playerName)}
-                      </span>
+                      {runner.playerId && (battingTeam === 'home' ? game.clubId : game.awayClubId) ? (
+                        <Link
+                          to={`/player/${battingTeam === 'home' ? game.clubId : game.awayClubId}/${runner.playerId}`}
+                          className="text-sm text-white hover:text-blue-300 transition hover:underline"
+                        >
+                          {runner.playerNumber ? `#${runner.playerNumber} ` : ''}{shortName(runner.playerName)}
+                        </Link>
+                      ) : (
+                        <span className="text-sm text-white">
+                          {runner.playerNumber ? `#${runner.playerNumber} ` : ''}{shortName(runner.playerName)}
+                        </span>
+                      )}
                     </div>
                   ) : null
                 )}
@@ -771,7 +807,17 @@ function BasketballScoreTab({ game, plays }) {
                 <p className="text-[9px] font-bold uppercase tracking-wider text-gray-600">{team}</p>
                 {leader ? (
                   <>
-                    <p className="mt-1 truncate text-sm font-semibold text-white">{leader.name}</p>
+                    {leader.id && (leader.team === 'home' ? game.clubId : game.awayClubId) ? (
+                      <Link
+                        to={`/player/${leader.team === 'home' ? game.clubId : game.awayClubId}/${leader.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-1 block truncate text-sm font-semibold text-white hover:text-blue-300 transition hover:underline"
+                      >
+                        {leader.name}
+                      </Link>
+                    ) : (
+                      <p className="mt-1 truncate text-sm font-semibold text-white">{leader.name}</p>
+                    )}
                     <p className="text-3xl font-extrabold text-blue-400">{leader.pts}</p>
                     <p className="text-[9px] text-gray-600">pts · tap for stats</p>
                   </>
@@ -1452,9 +1498,19 @@ function LineupsTab({ game, plays, isBaseball }) {
                 {/* Name + position + badges */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <p className={`truncate text-sm font-semibold ${isCurrent ? 'text-white' : 'text-gray-200'}`}>
-                      {shortName(player.playerName)}
-                    </p>
+                    {player.playerId && (activeTeam === 'home' ? game.clubId : game.awayClubId) ? (
+                      <Link
+                        to={`/player/${activeTeam === 'home' ? game.clubId : game.awayClubId}/${player.playerId}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`truncate text-sm font-semibold hover:underline transition ${isCurrent ? 'text-white hover:text-blue-300' : 'text-gray-200 hover:text-blue-300'}`}
+                      >
+                        {shortName(player.playerName)}
+                      </Link>
+                    ) : (
+                      <p className={`truncate text-sm font-semibold ${isCurrent ? 'text-white' : 'text-gray-200'}`}>
+                        {shortName(player.playerName)}
+                      </p>
+                    )}
                     {isCurrent && (
                       <span className="flex-shrink-0 rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold text-white">
                         UP

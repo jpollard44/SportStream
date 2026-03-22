@@ -392,12 +392,23 @@ export default function ScorekeeperPage() {
       {showPlays ? (
         <div className="flex-1 overflow-y-auto divide-y divide-gray-800/60">
           {plays.length === 0 && <p className="px-5 py-10 text-center text-sm text-gray-500">No plays recorded yet.</p>}
-          {plays.map((play) => (
+          {plays.map((play) => {
+            const playClubId = play.team === 'home' ? game.clubId : game.awayClubId
+            return (
             <div key={play.id} className="flex items-center gap-3 px-4 py-2.5">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">
-                  {play.playerName || (play.team === 'home' ? game.homeTeam : game.awayTeam)}
-                </p>
+                {play.playerId && playClubId ? (
+                  <Link
+                    to={`/player/${playClubId}/${play.playerId}`}
+                    className="block truncate text-sm font-semibold text-white hover:text-blue-300 transition hover:underline"
+                  >
+                    {play.playerName}
+                  </Link>
+                ) : (
+                  <p className="text-sm font-semibold text-white truncate">
+                    {play.playerName || (play.team === 'home' ? game.homeTeam : game.awayTeam)}
+                  </p>
+                )}
                 <p className="text-xs text-gray-500 capitalize">{play.type?.replace(/_/g, ' ')} · {play.team}</p>
               </div>
               {(play.scoreDelta?.home || play.scoreDelta?.away) && (
@@ -407,7 +418,8 @@ export default function ScorekeeperPage() {
                 <button onClick={() => handleDeletePlay(play)} className="ml-1 text-xs text-red-700 hover:text-red-400">✕</button>
               )}
             </div>
-          ))}
+            )
+          })}
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto">
@@ -464,6 +476,7 @@ export default function ScorekeeperPage() {
                   stats={playerStats[player.id]}
                   sport={sport}
                   isFinal={isFinal}
+                  clubId={game.clubId}
                   onAction={() => handlePlayerSelect(player.id, 'home')}
                   onAddToLineup={() => handleAddToLineup(player, 'home')}
                 />
@@ -652,14 +665,20 @@ function DualPlayerRow({ entry, stats, sport, tag, tagColor, isFinal, onAction, 
   )
 }
 
-function BenchRow({ player, stats, sport, isFinal, onAction, onAddToLineup }) {
+function BenchRow({ player, stats, sport, isFinal, onAction, onAddToLineup, clubId }) {
   return (
     <div className="flex items-center gap-2 border-b border-gray-800/30 px-3 py-2">
       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-800/60 text-xs font-bold text-gray-500">
         {player.number || player.name.charAt(0)}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-gray-400">{player.name}</p>
+        {player.id && clubId ? (
+          <Link to={`/player/${clubId}/${player.id}`} className="block truncate text-sm font-medium text-gray-400 hover:text-blue-300 transition hover:underline">
+            {player.name}
+          </Link>
+        ) : (
+          <p className="truncate text-sm font-medium text-gray-400">{player.name}</p>
+        )}
         {player.position && <p className="text-[10px] text-gray-600">{player.position}</p>}
         <StatPills sport={sport} stats={stats} />
       </div>

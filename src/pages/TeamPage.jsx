@@ -522,9 +522,18 @@ function SeasonStatsPanel({ club, clubId, games, isBaseball, seasonStats, loadin
             return (
               <div key={label} className="rounded-2xl bg-gray-900 p-3 text-center">
                 <p className="text-[9px] font-bold uppercase tracking-wider text-gray-600">{label} Leader</p>
-                <p className="mt-1 truncate text-xs font-semibold text-gray-300">
-                  {nickDisplay(leader.name, leader.nickname)}
-                </p>
+                {leader.id ? (
+                  <Link
+                    to={`/player/${clubId}/${leader.id}`}
+                    className="mt-1 block truncate text-xs font-semibold text-gray-300 hover:text-blue-300 transition hover:underline"
+                  >
+                    {nickDisplay(leader.name, leader.nickname)}
+                  </Link>
+                ) : (
+                  <p className="mt-1 truncate text-xs font-semibold text-gray-300">
+                    {nickDisplay(leader.name, leader.nickname)}
+                  </p>
+                )}
                 <p className="text-2xl font-extrabold text-blue-400">{fmt(leader[key], leader.gp)}</p>
               </div>
             )
