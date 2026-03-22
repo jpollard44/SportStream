@@ -7,6 +7,14 @@ import { updateNotificationPrefs, updateUserProfile, subscribeToUser } from '../
 import { deleteUser, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth'
 import { auth } from '../firebase/config'
 
+const ROLES = [
+  { id: 'host',        icon: '🏆', title: 'Host',             desc: 'I run leagues, tournaments, or organize teams' },
+  { id: 'manager',     icon: '📋', title: 'Manager / Coach',  desc: "I manage a team's roster, lineup, and schedule" },
+  { id: 'player',      icon: '🏃', title: 'Player',           desc: 'I play on a team and want to track my stats' },
+  { id: 'fan',         icon: '📣', title: 'Fan',              desc: 'I follow teams and players I care about' },
+  { id: 'scorekeeper', icon: '📊', title: 'Scorekeeper',      desc: 'I keep score during games for a team' },
+]
+
 // Cloud Function URL — Gen 2 Cloud Run URL from deploy output
 const CREATE_SESSION_URL =
   'https://createchipinsession-ciynfadanq-uc.a.run.app'
@@ -111,6 +119,10 @@ export default function SettingsPage() {
   const [notifPrefs, setNotifPrefs] = useState({ liveAlerts: true, finalScores: true, notablePlays: true })
   const [savingPrefs, setSavingPrefs] = useState(false)
 
+  // Roles
+  const [roles, setRoles] = useState([])
+  const [savingRoles, setSavingRoles] = useState(false)
+
   // Delete account
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deletePassword, setDeletePassword] = useState('')
@@ -123,8 +135,17 @@ export default function SettingsPage() {
     return subscribeToUser(user.uid, (u) => {
       if (u?.notificationPrefs) setNotifPrefs((prev) => ({ ...prev, ...u.notificationPrefs }))
       if (u?.displayName) setDisplayName(u.displayName)
+      if (u?.role) setRoles(u.role)
     })
   }, [user])
+
+  async function handleToggleRole(id) {
+    const next = roles.includes(id) ? roles.filter((r) => r !== id) : [...roles, id]
+    setRoles(next)
+    setSavingRoles(true)
+    try { await updateUserProfile(user.uid, { role: next }) }
+    finally { setSavingRoles(false) }
+  }
 
   async function handleSaveName() {
     if (!displayName.trim() || !user) return
@@ -292,6 +313,40 @@ export default function SettingsPage() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">Scorekeeper</h2>
         <div className="card mb-6">
           <VoiceAnnouncePref />
+        </div>
+
+        {/* Role picker */}
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
+          Your Role {savingRoles && <span className="ml-2 text-xs font-normal text-gray-600">Saving…</span>}
+        </h2>
+        <div className="card mb-6 space-y-2">
+          {ROLES.map(({ id, icon, title, desc }) => {
+            const active = roles.includes(id)
+            return (
+              <button
+                key={id}
+                onClick={() => handleToggleRole(id)}
+                className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition ring-1 ${
+                  active ? 'bg-blue-900/20 ring-blue-500/50' : 'bg-gray-800/40 ring-white/5 hover:ring-white/10'
+                }`}
+              >
+                <span className="text-xl leading-none">{icon}</span>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold ${active ? 'text-blue-300' : 'text-white'}`}>{title}</p>
+                  <p className="text-xs text-gray-500">{desc}</p>
+                </div>
+                <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                  active ? 'border-transparent bg-blue-500' : 'border-gray-600'
+                }`}>
+                  {active && (
+                    <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+              </button>
+            )
+          })}
         </div>
 
         {/* Plan tiers */}
