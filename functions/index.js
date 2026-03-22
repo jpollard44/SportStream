@@ -1,5 +1,5 @@
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https')
-const { onDocumentUpdated }             = require('firebase-functions/v2/firestore')
+const { onDocumentUpdated, onDocumentCreated } = require('firebase-functions/v2/firestore')
 const { setGlobalOptions }              = require('firebase-functions/v2')
 const { defineSecret }                  = require('firebase-functions/params')
 const admin                             = require('firebase-admin')
@@ -320,6 +320,209 @@ exports.createChipInSession = onRequest(
     }
   }
 )
+
+// ── onNewPlay — notify player followers on notable plays ──────────────────────
+const NOTABLE_PLAY_LABELS = {
+  // baseball / softball
+  home_run:   'hit a HOME RUN',
+  triple:     'hit a TRIPLE',
+  double:     'hit a DOUBLE',
+  strikeout:  'struck out',
+  // basketball
+  '3pt':      'hit a 3-pointer',
+  '3pt_miss': null, // not notable
+  // soccer / flag-football
+  goal:       'scored a goal',
+  touchdown:  'scored a touchdown',
+  // volleyball
+  ace:        'hit an ace',
+  kill:       'got a kill',
+}
+
+exports.onNewPlay = onDocumentCreated('games/{gameId}/plays/{playId}', async (event) => {
+  const play = event.data.data()
+  if (!play || play.undone) return
+
+  const label = NOTABLE_PLAY_LABELS[play.type]
+  if (!label) return // not a notable play type
+
+  const playerId  = play.playerId
+  const clubId    = play.clubId
+  const gameId    = event.params.gameId
+
+  if (!playerId) return
+
+  // Find users who follow this player
+  const usersSnap = await db.collection('users')
+    .where('followedPlayers', 'array-contains-any',
+      // Firestore doesn't support direct object match in array-contains-any;
+      // we do a broader query and filter client-side
+      // Instead, store follower lists on player doc — use collectionGroup workaround:
+      // Fall back to scanning users (acceptable for MVP scale)
+      [{ playerId }]
+    )
+    .get()
+    .catch(() => null)
+
+  // Fallback: scan users whose followedPlayers contains an object with this playerId
+  // Since Firestore can't query nested array objects efficiently, we use a known pattern:
+  // users store followedPlayers as array of objects. We query all users and filter client-side.
+  // For scale, a separate followers/{playerId}/users subcollection would be better.
+  // For MVP: fetch users with any followedPlayers entry (limit 500).
+  const allUsersSnap = await db.collection('users')
+    .where('followedPlayers', '!=', [])
+    .limit(500)
+    .get()
+    .catch(() => null)
+
+  if (!allUsersSnap || allUsersSnap.empty) return
+
+  const allTokens = []
+  const userDocs  = []
+
+  for (const userDoc of allUsersSnap.docs) {
+    const data    = userDoc.data()
+    const follows = data.followedPlayers || []
+    const isFollowing = follows.some((f) => f.playerId === playerId)
+    if (!isFollowing) continue
+    const tokens = data.fcmTokens || []
+    if (tokens.length === 0) continue
+    allTokens.push(...tokens)
+    userDocs.push({ ref: userDoc.ref, tokens })
+  }
+
+  if (allTokens.length === 0) return
+
+  const playerName = play.playerName || 'A player'
+  const gameUrl    = `${APP_URL}/game/${gameId}`
+
+  try {
+    const response = await admin.messaging().sendEachForMulticast({
+      tokens: allTokens,
+      notification: {
+        title: `${playerName} ${label}!`,
+        body:  play.clockAtPlay ? `Game clock: ${play.clockAtPlay}` : 'Check the play-by-play →',
+      },
+      data:  { url: gameUrl },
+      webpush: {
+        notification: { icon: `${APP_URL}/favicon.svg` },
+        fcmOptions:   { link: gameUrl },
+      },
+    })
+
+    // Clean stale tokens
+    const staleTokens = new Set()
+    response.responses.forEach((r, idx) => {
+      if (!r.success) {
+        const code = r.error?.code
+        if (
+          code === 'messaging/invalid-registration-token' ||
+          code === 'messaging/registration-token-not-registered'
+        ) {
+          staleTokens.add(allTokens[idx])
+        }
+      }
+    })
+    if (staleTokens.size > 0) {
+      const batch = db.batch()
+      for (const { ref, tokens } of userDocs) {
+        const cleaned = tokens.filter((t) => !staleTokens.has(t))
+        if (cleaned.length !== tokens.length) batch.update(ref, { fcmTokens: cleaned })
+      }
+      await batch.commit()
+    }
+  } catch (e) {
+    console.error('onNewPlay FCM error:', e)
+  }
+})
+
+// ── onGameComplete — stat summary push when game goes final ───────────────────
+exports.onGameComplete = onDocumentUpdated('games/{gameId}', async (event) => {
+  const before = event.data.before.data()
+  const after  = event.data.after.data()
+
+  if (before.status === 'final' || after.status !== 'final') return
+
+  const gameId   = event.params.gameId
+  const gameUrl  = `${APP_URL}/game/${gameId}`
+  const home     = after.homeTeam || 'Home'
+  const away     = after.awayTeam || 'Away'
+
+  // Collect all playerIds from both lineups
+  const homeLineup = after.homeLineup || []
+  const awayLineup = after.awayLineup || []
+  const allPlayers = [...homeLineup, ...awayLineup]
+  const playerIds  = [...new Set(allPlayers.map((p) => p.playerId).filter(Boolean))]
+
+  if (playerIds.length === 0) return
+
+  // Find users who follow any of these players
+  const allUsersSnap = await db.collection('users')
+    .where('followedPlayers', '!=', [])
+    .limit(500)
+    .get()
+    .catch(() => null)
+
+  if (!allUsersSnap || allUsersSnap.empty) return
+
+  const playerIdSet = new Set(playerIds)
+  const allTokens   = []
+  const userDocs    = []
+
+  for (const userDoc of allUsersSnap.docs) {
+    const data    = userDoc.data()
+    const follows = data.followedPlayers || []
+    const matchedPlayers = follows.filter((f) => playerIdSet.has(f.playerId))
+    if (matchedPlayers.length === 0) continue
+    const tokens = data.fcmTokens || []
+    if (tokens.length === 0) continue
+    allTokens.push(...tokens)
+    userDocs.push({ ref: userDoc.ref, tokens })
+  }
+
+  if (allTokens.length === 0) return
+
+  const finalScore = `${after.homeScore ?? 0}–${after.awayScore ?? 0}`
+
+  try {
+    const response = await admin.messaging().sendEachForMulticast({
+      tokens: allTokens,
+      notification: {
+        title: `Final: ${home} ${finalScore} ${away}`,
+        body:  'Check the stats for players you follow →',
+      },
+      data:  { url: gameUrl },
+      webpush: {
+        notification: { icon: `${APP_URL}/favicon.svg` },
+        fcmOptions:   { link: gameUrl },
+      },
+    })
+
+    // Clean stale tokens
+    const staleTokens = new Set()
+    response.responses.forEach((r, idx) => {
+      if (!r.success) {
+        const code = r.error?.code
+        if (
+          code === 'messaging/invalid-registration-token' ||
+          code === 'messaging/registration-token-not-registered'
+        ) {
+          staleTokens.add(allTokens[idx])
+        }
+      }
+    })
+    if (staleTokens.size > 0) {
+      const batch = db.batch()
+      for (const { ref, tokens } of userDocs) {
+        const cleaned = tokens.filter((t) => !staleTokens.has(t))
+        if (cleaned.length !== tokens.length) batch.update(ref, { fcmTokens: cleaned })
+      }
+      await batch.commit()
+    }
+  } catch (e) {
+    console.error('onGameComplete FCM error:', e)
+  }
+})
 
 // ── onGameLive — notify followers when a game goes live ───────────────────────
 exports.onGameLive = onDocumentUpdated('games/{gameId}', async (event) => {

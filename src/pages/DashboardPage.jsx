@@ -6,6 +6,7 @@ import {
   subscribeToUser, subscribeToFollowedGames,
   searchClubs, getClub, followClub, unfollowClub,
   subscribeLiveGames, getClubRecord, unfollowPlayer,
+  getClaimedPlayerProfile,
 } from '../firebase/firestore'
 import { subscribeToUserTournaments, deleteTournament } from '../firebase/tournaments'
 import { subscribeToUserLeagues, deleteLeague } from '../firebase/leagues'
@@ -40,6 +41,7 @@ export default function DashboardPage() {
   const [followedGames, setFollowedGames] = useState([])
   const [liveGames, setLiveGames] = useState([])
   const [clubRecords, setClubRecords] = useState({})
+  const [claimedProfile, setClaimedProfile] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
   const [showStartGame, setShowStartGame] = useState(false)
   const [newName, setNewName] = useState('')
@@ -56,6 +58,7 @@ export default function DashboardPage() {
     })
     const u4 = subscribeToUserLeagues(user.uid, setLeagues)
     const u5 = subscribeLiveGames(setLiveGames)
+    getClaimedPlayerProfile(user.uid).then(setClaimedProfile).catch(() => {})
     return () => { u1(); u2(); u3(); u4(); u5() }
   }, [user])
 
@@ -127,6 +130,7 @@ export default function DashboardPage() {
   const sharedProps = {
     clubs, tournaments, leagues, clubRecords,
     followedClubs, followedPlayers, followedClubData, followedGames, liveGames,
+    claimedProfile,
     onDeleteClub: handleDeleteClub,
     onDeleteTournament: handleDeleteTournament,
     onDeleteLeague: handleDeleteLeague,
@@ -284,7 +288,7 @@ export default function DashboardPage() {
 
 // ── Home tab ───────────────────────────────────────────────────────────────────
 
-function HomeTab({ clubs, clubRecords, liveGames, followedGames, onCreateClub, onStartGame, setTab }) {
+function HomeTab({ clubs, clubRecords, liveGames, followedGames, claimedProfile, onCreateClub, onStartGame, setTab }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -351,6 +355,40 @@ function HomeTab({ clubs, clubRecords, liveGames, followedGames, onCreateClub, o
           </div>
         )}
       </div>
+
+      {/* My Profile card */}
+      {claimedProfile && (
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">My Profile</p>
+          <Link
+            to={`/player/${claimedProfile.clubId}/${claimedProfile.playerId}`}
+            className="flex items-center gap-4 rounded-2xl bg-gray-900 px-4 py-3 transition hover:bg-gray-800"
+          >
+            {claimedProfile.photoUrl ? (
+              <img src={claimedProfile.photoUrl} alt={claimedProfile.name} className="h-12 w-12 shrink-0 rounded-xl object-cover ring-2 ring-gray-700" />
+            ) : (
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-900/50 text-xl font-extrabold text-blue-300 ring-2 ring-gray-700">
+                {claimedProfile.number || claimedProfile.name?.charAt(0) || '?'}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              {claimedProfile.nickname ? (
+                <>
+                  <p className="font-bold text-white">"{claimedProfile.nickname}"</p>
+                  <p className="text-xs text-gray-400">{claimedProfile.name}</p>
+                </>
+              ) : (
+                <p className="font-bold text-white">{claimedProfile.name}</p>
+              )}
+              <div className="mt-0.5 flex flex-wrap gap-x-2 text-[10px] text-gray-500">
+                {claimedProfile.position && <span>{claimedProfile.position}</span>}
+                {claimedProfile.number && <span>#{claimedProfile.number}</span>}
+              </div>
+            </div>
+            <span className="shrink-0 text-xs text-gray-600">→</span>
+          </Link>
+        </div>
+      )}
 
       {/* Quick actions */}
       <div>

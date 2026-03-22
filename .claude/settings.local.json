@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npx create-vite@latest . --template react)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(npx firebase:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(grep -r \"chat\\\\|message\\\\|image\\\\|upload\\\\|storage\" /Users/jordanpollard/SportStream/src --include=*.jsx --include=*.js -l)",
+      "Bash(ls -la /Users/jordanpollard/SportStream/.env*)",
+      "Bash(grep -r \"getStorage\\\\|Storage\\\\|uploadBytes\\\\|getBytes\\\\|ref\\\\\\(\" /Users/jordanpollard/SportStream/src --include=*.jsx --include=*.js)",
+      "Bash(grep -r \"File\\\\|Blob\\\\|URL.createObjectURL\\\\|FileReader\\\\|FormData\" /Users/jordanpollard/SportStream/src --include=*.jsx --include=*.js)",
+      "Bash(grep -ri \"chat\\\\|message\\\\|comment\\\\|comment\" /Users/jordanpollard/SportStream/src --include=*.jsx --include=*.js)",
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"require.resolve\\(''firebase/storage''\\)\")",
+      "Bash(firebase deploy:*)",
+      "Bash(git init:*)",
+      "Bash(git remote:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(all associated stats and records.\":*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git checkout:*)",
+      "Bash(node_modules/.bin/vite build:*)"
+    ]
+  }
+}

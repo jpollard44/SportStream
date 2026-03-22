@@ -15,6 +15,8 @@ import {
   deleteTournament,
   buildSingleEliminationBracket,
   buildRoundRobinSchedule,
+  buildDoubleEliminationBracket,
+  buildSmartSchedule,
   declareMatchWinner,
   linkGameToMatchup,
   markPlayerPaid,
@@ -79,9 +81,10 @@ export default function TournamentPage() {
   const [statusBusy, setStatusBusy]         = useState(false)
   const [showEditTournament, setShowEditTournament] = useState(false)
   const [editTeamModal, setEditTeamModal]   = useState(null)
-  const [showAutoSchedule, setShowAutoSchedule]     = useState(false)
-  const [draggedGameId, setDraggedGameId]           = useState(null)
-  const [editMatch, setEditMatch]                   = useState(null)
+  const [showAutoSchedule, setShowAutoSchedule]       = useState(false)
+  const [showBracketSetup, setShowBracketSetup]       = useState(false)
+  const [draggedGameId, setDraggedGameId]             = useState(null)
+  const [editMatch, setEditMatch]                     = useState(null)
   const [photoUploading, setPhotoUploading]         = useState(false)
   const [photoError, setPhotoError]                 = useState('')
   const photoInputRef = useRef(null)
@@ -115,23 +118,58 @@ export default function TournamentPage() {
   const canGenerate   = isHost && acceptedTeams.length >= 2 && tournament?.status === 'registration'
 
   // ── Generate bracket / schedule ──────────────────────────────────────────
-  async function handleGenerate() {
+  async function handleGenerate(setupOpts) {
+    // For DE format, show setup modal first
+    if (tournament.format === 'double_elimination' && !setupOpts) {
+      setShowBracketSetup(true)
+      return
+    }
+
     setGenerating(true)
     try {
-      const isSE = tournament.format === 'single_elimination'
       const sorted = [...acceptedTeams].sort((a, b) => {
         if (a.seed && b.seed) return a.seed - b.seed
         if (a.seed) return -1
         if (b.seed) return 1
         return 0
       })
-      const data = isSE
-        ? { bracket: buildSingleEliminationBracket(sorted), status: 'active' }
-        : { schedule: buildRoundRobinSchedule(sorted), status: 'active' }
-      await updateTournament(tourId, data)
+
+      let data
+      if (tournament.format === 'single_elimination') {
+        data = { bracket: buildSingleEliminationBracket(sorted), status: 'active' }
+      } else if (tournament.format === 'round_robin') {
+        data = { schedule: buildRoundRobinSchedule(sorted), status: 'active' }
+      } else if (tournament.format === 'double_elimination') {
+        const { bracket, losersBracket } = buildDoubleEliminationBracket(sorted)
+        // Auto-schedule if setup options provided
+        if (setupOpts?.startDate) {
+          // Group matches by round for scheduling
+          const wMatches = bracket.filter((m) => m.bracket !== 'grandFinal')
+          const rounds = [...new Set(wMatches.map((m) => m.round))].sort((a, b) => a - b)
+          const roundGroups = rounds.map((r) => wMatches.filter((m) => m.round === r))
+          // Also include L bracket rounds in order
+          if (losersBracket.length > 0) {
+            const lRounds = [...new Set(losersBracket.map((m) => m.lRound))].sort((a, b) => a - b)
+            lRounds.forEach((lr) => {
+              roundGroups.push(losersBracket.filter((m) => m.lRound === lr))
+            })
+          }
+          const scheduled = buildSmartSchedule(roundGroups, setupOpts)
+          // Re-apply scheduled info back to bracket arrays
+          scheduled.forEach((sm) => {
+            const wIdx = bracket.findIndex((m) => m.matchId === sm.matchId)
+            if (wIdx !== -1) { bracket[wIdx] = { ...bracket[wIdx], scheduledAt: sm.scheduledAt, field: sm.field } }
+            const lIdx = losersBracket.findIndex((m) => m.matchId === sm.matchId)
+            if (lIdx !== -1) { losersBracket[lIdx] = { ...losersBracket[lIdx], scheduledAt: sm.scheduledAt, field: sm.field } }
+          })
+        }
+        data = { bracket, losersBracket, status: 'active' }
+      }
+      if (data) await updateTournament(tourId, data)
       setTab('bracket')
     } finally {
       setGenerating(false)
+      setShowBracketSetup(false)
     }
   }
 
@@ -180,8 +218,8 @@ export default function TournamentPage() {
   }
 
   // ── Declare winner ────────────────────────────────────────────────────────
-  async function handleDeclare(match, winnerId, winnerName) {
-    await declareMatchWinner(tourId, match.matchId, winnerId, winnerName, tournament)
+  async function handleDeclare(match, winnerId, winnerName, bracketType = 'winners') {
+    await declareMatchWinner(tourId, match.matchId, winnerId, winnerName, tournament, bracketType)
     setDeclareMatch(null)
   }
 
@@ -422,11 +460,18 @@ export default function TournamentPage() {
           )}
           {/* Auto-schedule button — shown when bracket exists but games not yet scheduled */}
           {isHost && tournament.status === 'active' && (() => {
-            const field     = tournament.format === 'round_robin' ? 'schedule' : 'bracket'
-            const matchups  = tournament[field] || []
-            const r1Unsched = tournament.format === 'round_robin'
+            const isRR  = tournament.format === 'round_robin'
+            const isDE  = tournament.format === 'double_elimination'
+            const matchups = isRR
+              ? (tournament.schedule || [])
+              : (tournament.bracket  || [])
+            const lMatchups = tournament.losersBracket || []
+            const r1Unsched = isRR
               ? matchups.filter((m) => !m.gameId && m.homeTeamId && m.awayTeamId)
-              : matchups.filter((m) => m.round === 1 && !m.gameId && m.homeTeamId && m.awayTeamId)
+              : isDE
+                ? [...matchups.filter((m) => m.bracket === 'winners' && m.round === 1 && !m.gameId && m.homeTeamId && m.awayTeamId),
+                   ...lMatchups.filter((m) => m.lRound === 1 && !m.gameId && m.homeTeamId && m.awayTeamId)]
+                : matchups.filter((m) => m.round === 1 && !m.gameId && m.homeTeamId && m.awayTeamId)
             return r1Unsched.length > 0
           })() && (
             <div className="mx-auto max-w-lg px-5 pt-3">
@@ -442,8 +487,8 @@ export default function TournamentPage() {
             tournament={tournament}
             teams={acceptedTeams}
             isHost={isHost}
-            onSchedule={(match) => setScheduleMatch(match)}
-            onDeclare={(match) => setDeclareMatch(match)}
+            onSchedule={(match, bType) => { setScheduleMatch({ ...match, _bracketType: bType }) }}
+            onDeclare={(match, bType) => setDeclareMatch({ ...match, _bracketType: bType })}
             onEdit={(match) => setEditMatch(match)}
           />
         </div>
@@ -530,8 +575,18 @@ export default function TournamentPage() {
       {declareMatch && (
         <DeclareWinnerModal
           match={declareMatch}
-          onDeclare={(winnerId, winnerName) => handleDeclare(declareMatch, winnerId, winnerName)}
+          onDeclare={(winnerId, winnerName) => handleDeclare(declareMatch, winnerId, winnerName, declareMatch._bracketType || 'winners')}
           onClose={() => setDeclareMatch(null)}
+        />
+      )}
+
+      {/* ── Bracket Setup Modal (DE pre-generation) ── */}
+      {showBracketSetup && (
+        <BracketSetupModal
+          tournament={tournament}
+          onGenerate={(opts) => handleGenerate(opts)}
+          onClose={() => setShowBracketSetup(false)}
+          generating={generating}
         />
       )}
 
@@ -1185,8 +1240,9 @@ function EditMatchupModal({ match, tournament, teams, tourId, onClose }) {
   const [field, setField]   = useState(match.field || '')
   const [saving, setSaving] = useState(false)
 
-  const isSE        = tournament.format === 'single_elimination'
-  const bracketField = isSE ? 'bracket' : 'schedule'
+  const isRR = tournament.format === 'round_robin'
+  const isDE = tournament.format === 'double_elimination'
+  const isInLosersBracket = isDE && match.bracket === 'losers'
 
   async function handleSave(e) {
     e.preventDefault()
@@ -1204,7 +1260,8 @@ function EditMatchupModal({ match, tournament, teams, tourId, onClose }) {
         field:        field.trim() || null,
       }
 
-      // Update bracket/schedule array on tournament doc
+      // Determine which Firestore field to update
+      const bracketField = isRR ? 'schedule' : isInLosersBracket ? 'losersBracket' : 'bracket'
       const bracketArr = [...(tournament[bracketField] || [])]
       const idx = bracketArr.findIndex((m) => m.matchId === match.matchId)
       if (idx !== -1) {
@@ -1293,6 +1350,102 @@ function EditMatchupModal({ match, tournament, teams, tourId, onClose }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+// ── Bracket Setup Modal (shown before DE bracket generation) ───────────────────
+
+function BracketSetupModal({ tournament, onGenerate, onClose, generating }) {
+  const defaultDate = tournament.startDate || new Date().toISOString().slice(0, 10)
+  const [startDate,    setStartDate]    = useState(defaultDate)
+  const [numFields,    setNumFields]    = useState(1)
+  const [gameDuration, setGameDuration] = useState(60)
+  const [firstGame,    setFirstGame]    = useState('09:00')
+  const [lastGame,     setLastGame]     = useState('21:00')
+  const [autoSchedule, setAutoSchedule] = useState(true)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center"
+      onClick={onClose}>
+      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}>
+        <div>
+          <h3 className="text-lg font-bold text-white">Generate Double-Elimination Bracket</h3>
+          <p className="mt-1 text-xs text-gray-500">Set up scheduling options before generating.</p>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm text-gray-400">Tournament Start Date</label>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="input" />
+        </div>
+
+        <label className="flex items-center gap-3 cursor-pointer">
+          <div onClick={() => setAutoSchedule((v) => !v)}
+            className={`relative h-5 w-9 rounded-full transition ${autoSchedule ? 'bg-blue-600' : 'bg-gray-700'}`}>
+            <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${autoSchedule ? 'translate-x-4' : 'translate-x-0.5'}`} />
+          </div>
+          <span className="text-sm text-gray-300">Auto-schedule all games</span>
+        </label>
+
+        {autoSchedule && (
+          <>
+            <div>
+              <label className="mb-2 block text-sm text-gray-400">Fields / Courts available</label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4].map((n) => (
+                  <button key={n} type="button" onClick={() => setNumFields(n)}
+                    className={`flex-1 rounded-xl py-2 text-sm font-semibold transition ${
+                      numFields === n ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm text-gray-400">Game duration (minutes)</label>
+              <div className="flex gap-2">
+                {[60, 90, 120, 150].map((n) => (
+                  <button key={n} type="button" onClick={() => setGameDuration(n)}
+                    className={`flex-1 rounded-xl py-2 text-sm font-semibold transition ${
+                      gameDuration === n ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}>
+                    {n}m
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1.5 block text-xs text-gray-400">First game start</label>
+                <input type="time" value={firstGame} onChange={(e) => setFirstGame(e.target.value)} className="input" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs text-gray-400">Last game start</label>
+                <input type="time" value={lastGame} onChange={(e) => setLastGame(e.target.value)} className="input" />
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="flex gap-3 pt-1">
+          <button onClick={onClose} disabled={generating} className="btn-secondary flex-1">Cancel</button>
+          <button
+            onClick={() => onGenerate(autoSchedule ? {
+              startDate,
+              numFields,
+              gameDurationMin: gameDuration,
+              firstGameTime: firstGame,
+              lastGameTime:  lastGame,
+            } : null)}
+            disabled={generating || !startDate}
+            className="btn-primary flex-1"
+          >
+            {generating ? 'Generating…' : 'Generate Bracket'}
+          </button>
+        </div>
       </div>
     </div>
   )

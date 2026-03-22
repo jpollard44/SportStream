@@ -6,6 +6,7 @@ import { createTournament } from '../firebase/tournaments'
 const SPORTS   = ['basketball', 'baseball', 'softball', 'soccer', 'volleyball', 'flag-football']
 const FORMATS  = [
   { value: 'single_elimination', label: 'Single Elimination' },
+  { value: 'double_elimination', label: 'Double Elimination' },
   { value: 'round_robin',        label: 'Round Robin' },
 ]
 const MAX_OPTS = [4, 8, 16, 32]

@@ -1,15 +1,152 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getPlayer, getClub, getPlayerHistoricalPlays, subscribeToUser, followPlayer, unfollowPlayer } from '../firebase/firestore'
+import { getPlayer, getClub, getPlayerHistoricalPlays, subscribeToUser, followPlayer, unfollowPlayer, updatePlayer } from '../firebase/firestore'
+import { uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate, nickDisplay } from '../lib/formatters'
 import {
-  BB_HIT_TYPES, BB_AT_BAT_TYPES, BB_PLAY_TYPES,
+  BB_HIT_TYPES, BB_AT_BAT_TYPES, BB_PLAY_TYPES, SPORT_POSITIONS,
 } from '../lib/baseballHelpers'
 
 const SPORT_EMOJI = {
   basketball: '🏀', baseball: '⚾', softball: '🥎',
   soccer: '⚽', volleyball: '🏐', 'flag-football': '🏈',
+}
+
+// ── Edit Profile Modal ────────────────────────────────────────────────────────
+
+function EditProfileModal({ player, club, clubId, playerId, onSave, onClose }) {
+  const [nickname, setNickname] = useState(player.nickname || '')
+  const [bio,      setBio]      = useState(player.bio      || '')
+  const [position, setPosition] = useState(player.position || '')
+  const [number,   setNumber]   = useState(player.number   || '')
+  const [saving,   setSaving]   = useState(false)
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const [photoUrl, setPhotoUrl] = useState(player.photoUrl || '')
+  const [err,      setErr]      = useState('')
+  const photoRef = useRef(null)
+
+  const positions = SPORT_POSITIONS[club?.sport] || []
+
+  async function handlePhotoChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoUploading(true)
+    setErr('')
+    try {
+      const url = await uploadPlayerPhoto(clubId, playerId, file)
+      await updatePlayer(clubId, playerId, { photoUrl: url })
+      setPhotoUrl(url)
+    } catch (ex) {
+      setErr('Photo upload failed: ' + (ex?.message || 'unknown'))
+    } finally {
+      setPhotoUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  async function handleSave(e) {
+    e.preventDefault()
+    setSaving(true)
+    setErr('')
+    try {
+      const updates = { nickname: nickname.trim(), bio: bio.trim(), position, number: number.trim() }
+      await updatePlayer(clubId, playerId, updates)
+      onSave({ ...updates, photoUrl })
+    } catch (ex) {
+      setErr(ex?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center"
+      onClick={onClose}>
+      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 space-y-4 sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-bold text-white">Edit My Profile</h3>
+
+        {/* Photo */}
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => photoRef.current?.click()}
+            disabled={photoUploading}
+            className="group relative shrink-0"
+          >
+            {photoUrl ? (
+              <img src={photoUrl} alt="avatar" className="h-16 w-16 rounded-2xl object-cover ring-2 ring-gray-700 group-hover:ring-blue-500 transition" />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-900/50 text-2xl font-bold text-blue-300 ring-2 ring-gray-700 group-hover:ring-blue-500 transition">
+                {photoUploading
+                  ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+                  : (player.number || player.name.charAt(0))}
+              </div>
+            )}
+            <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[10px] text-white shadow">✏</span>
+          </button>
+          <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+          <div className="text-xs text-gray-400">
+            <p className="font-semibold text-white">{player.name}</p>
+            <p>Tap to change photo</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSave} className="space-y-3">
+          <div>
+            <label className="mb-1.5 block text-sm text-gray-400">Nickname</label>
+            <input
+              type="text"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder='e.g. "Ace"'
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm text-gray-400">Bio</label>
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="A short bio about yourself…"
+              rows={2}
+              className="input resize-none"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm text-gray-400">Jersey #</label>
+              <input
+                type="text"
+                value={number}
+                onChange={(e) => setNumber(e.target.value)}
+                placeholder="#"
+                maxLength={3}
+                className="input text-center"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm text-gray-400">Position</label>
+              <select value={position} onChange={(e) => setPosition(e.target.value)} className="input">
+                <option value="">—</option>
+                {positions.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {err && <p className="rounded-xl bg-red-900/40 px-3 py-2 text-xs text-red-300">{err}</p>}
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+            <button type="submit" disabled={saving || photoUploading} className="btn-primary flex-1">
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 function battingAvg(h, ab) {
@@ -91,6 +228,7 @@ export default function PlayerPage() {
   const [loading, setLoading] = useState(true)
   const [followLoading, setFollowLoading] = useState(false)
   const [showSignIn, setShowSignIn] = useState(false)
+  const [showEditProfile, setShowEditProfile] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -218,23 +356,35 @@ export default function PlayerPage() {
                   </span>
                 )}
               </div>
+              {player.bio && (
+                <p className="mt-1.5 text-xs text-gray-400 leading-relaxed line-clamp-2">{player.bio}</p>
+              )}
               <Link to={`/team/${clubId}`} className="mt-2 flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300">
                 <span>{sportEmoji}</span>
                 <span>{club.name}</span>
               </Link>
             </div>
 
-            <button
-              onClick={handleToggleFollow}
-              disabled={followLoading}
-              className={`shrink-0 rounded-xl px-4 py-2 text-sm font-bold transition active:scale-95 disabled:opacity-60 ${
-                isFollowing
-                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  : 'bg-blue-600 text-white hover:bg-blue-500'
-              }`}
-            >
-              {followLoading ? '…' : isFollowing ? '✓ Fan' : '+ Be a Fan'}
-            </button>
+            {user?.uid === player.uid ? (
+              <button
+                onClick={() => setShowEditProfile(true)}
+                className="shrink-0 rounded-xl bg-gray-700 px-4 py-2 text-sm font-bold text-white hover:bg-gray-600 transition active:scale-95"
+              >
+                Edit Profile
+              </button>
+            ) : (
+              <button
+                onClick={handleToggleFollow}
+                disabled={followLoading}
+                className={`shrink-0 rounded-xl px-4 py-2 text-sm font-bold transition active:scale-95 disabled:opacity-60 ${
+                  isFollowing
+                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    : 'bg-blue-600 text-white hover:bg-blue-500'
+                }`}
+              >
+                {followLoading ? '…' : isFollowing ? '✓ Fan' : '+ Be a Fan'}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -355,6 +505,18 @@ export default function PlayerPage() {
           </div>
         )}
       </div>
+
+      {/* Edit My Profile modal */}
+      {showEditProfile && (
+        <EditProfileModal
+          player={player}
+          club={club}
+          clubId={clubId}
+          playerId={playerId}
+          onSave={(updated) => { setPlayer((p) => ({ ...p, ...updated })); setShowEditProfile(false) }}
+          onClose={() => setShowEditProfile(false)}
+        />
+      )}
 
       {/* Sign-in prompt */}
       {showSignIn && (

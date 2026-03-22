@@ -1,15 +1,26 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useClub } from '../hooks/useClub'
-import { addPlayer, updatePlayer, deletePlayer, updateClub, subscribeToClubGames, deleteGame, markGameFinal, createInvite } from '../firebase/firestore'
+import {
+  addPlayer, updatePlayer, deletePlayer, updateClub,
+  subscribeToClubGames, subscribeToClubSchedule,
+  createScheduledGame, updateGame, deleteGame, markGameFinal, createInvite,
+} from '../firebase/firestore'
 import { uploadClubLogo, uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate } from '../lib/formatters'
 import { SPORT_POSITIONS } from '../lib/baseballHelpers'
+
+const GAME_TYPES = ['regular', 'playoff', 'scrimmage']
 
 export default function ClubPage() {
   const { clubId } = useParams()
   const { club, players, loading } = useClub(clubId)
   const [games, setGames] = useState([])
+  const [schedule, setSchedule] = useState([])
+
+  // Add game schedule state
+  const [showAddSchedule, setShowAddSchedule] = useState(false)
+  const [editingScheduleGame, setEditingScheduleGame] = useState(null)
 
   // Add player form state
   const [showAddPlayer, setShowAddPlayer] = useState(false)
@@ -133,6 +144,12 @@ export default function ClubPage() {
     return unsub
   }, [clubId])
 
+  useEffect(() => {
+    if (!clubId) return
+    const unsub = subscribeToClubSchedule(clubId, setSchedule)
+    return unsub
+  }, [clubId])
+
   function resetAddForm() {
     setName(''); setNickname(''); setNumber(''); setPosition(''); setEmail(''); setPhone('')
   }
@@ -253,6 +270,37 @@ export default function ClubPage() {
       </header>
 
       <main className="mx-auto max-w-lg px-5 space-y-8 pt-6">
+
+        {/* ── Schedule ── */}
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="section-label">Schedule ({schedule.length})</h2>
+            <button
+              onClick={() => setShowAddSchedule(true)}
+              className="rounded-full bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500 transition"
+            >
+              + Add Game
+            </button>
+          </div>
+          {schedule.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-800 py-10 text-center">
+              <span className="text-3xl">📅</span>
+              <p className="text-sm text-gray-400">No scheduled games yet.</p>
+              <button onClick={() => setShowAddSchedule(true)}
+                className="rounded-full bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-600 transition">
+                Schedule a game →
+              </button>
+            </div>
+          ) : (
+            <ScheduleList
+              schedule={schedule}
+              onEdit={(g) => setEditingScheduleGame(g)}
+              onDelete={async (id) => {
+                if (confirm('Remove this scheduled game?')) await deleteGame(id)
+              }}
+            />
+          )}
+        </section>
 
         {/* ── Games ── */}
         <section>
@@ -587,6 +635,17 @@ export default function ClubPage() {
         </div>
       )}
 
+      {/* ── Add / Edit Schedule Modal ── */}
+      {(showAddSchedule || editingScheduleGame) && (
+        <ScheduleGameModal
+          clubId={clubId}
+          club={club}
+          existing={editingScheduleGame}
+          schedule={schedule}
+          onClose={() => { setShowAddSchedule(false); setEditingScheduleGame(null) }}
+        />
+      )}
+
       {/* ── Confirm Delete Game ── */}
       {confirmDeleteGame && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6">
@@ -626,11 +685,198 @@ export default function ClubPage() {
 
 function StatusBadge({ status }) {
   const config = {
-    setup:  { label: 'Setup',    cls: 'bg-yellow-900/50 text-yellow-300' },
-    live:   { label: '● LIVE',   cls: 'bg-red-900/50 text-red-400' },
-    paused: { label: 'Paused',   cls: 'bg-gray-700 text-gray-300' },
-    final:  { label: 'Final',    cls: 'bg-gray-800 text-gray-400' },
+    scheduled: { label: 'Scheduled', cls: 'bg-indigo-900/50 text-indigo-300' },
+    setup:     { label: 'Setup',     cls: 'bg-yellow-900/50 text-yellow-300' },
+    live:      { label: '● LIVE',    cls: 'bg-red-900/50 text-red-400' },
+    paused:    { label: 'Paused',    cls: 'bg-gray-700 text-gray-300' },
+    final:     { label: 'Final',     cls: 'bg-gray-800 text-gray-400' },
   }
   const { label, cls } = config[status] || config.setup
   return <span className={`badge ${cls}`}>{label}</span>
+}
+
+// ── Schedule List ─────────────────────────────────────────────────────────────
+
+function ScheduleList({ schedule, onEdit, onDelete }) {
+  const now = Date.now()
+  const upcoming = schedule.filter((g) => !g.scheduledAt || new Date(g.scheduledAt).getTime() >= now)
+  const past     = schedule.filter((g) => g.scheduledAt && new Date(g.scheduledAt).getTime() < now)
+
+  function fmtScheduled(iso) {
+    if (!iso) return 'No date set'
+    const d = new Date(iso)
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
+      ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  }
+
+  function GameRow({ game }) {
+    return (
+      <div className="card flex items-start justify-between gap-3 p-4">
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold text-white">
+            {game.homeTeam} <span className="text-gray-500">vs</span> {game.awayTeam}
+          </p>
+          <p className="text-xs text-indigo-400 mt-0.5">{fmtScheduled(game.scheduledAt)}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            {game.venue && <span className="text-xs text-gray-500">📍 {game.venue}</span>}
+            {game.gameType && game.gameType !== 'regular' && (
+              <span className="rounded-full bg-gray-800 px-2 py-0.5 text-[10px] capitalize text-gray-400">{game.gameType}</span>
+            )}
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <button onClick={() => onEdit(game)} className="text-xs text-gray-500 hover:text-blue-400">Edit</button>
+          <button onClick={() => onDelete(game.id)} className="text-xs text-gray-600 hover:text-red-400">Remove</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {upcoming.length > 0 && (
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-indigo-500">Upcoming</p>
+          <div className="flex flex-col gap-2">
+            {upcoming.map((g) => <GameRow key={g.id} game={g} />)}
+          </div>
+        </div>
+      )}
+      {past.length > 0 && (
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-600">Past</p>
+          <div className="flex flex-col gap-2">
+            {past.map((g) => <GameRow key={g.id} game={g} />)}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Add / Edit Schedule Game Modal ────────────────────────────────────────────
+
+function ScheduleGameModal({ clubId, club, existing, schedule, onClose }) {
+  const [opponent,  setOpponent]  = useState(existing?.awayTeam   || '')
+  const [venue,     setVenue]     = useState(existing?.venue       || '')
+  const [gameType,  setGameType]  = useState(existing?.gameType    || 'regular')
+  const [dateTime,  setDateTime]  = useState(
+    existing?.scheduledAt
+      ? new Date(existing.scheduledAt).toISOString().slice(0, 16)
+      : ''
+  )
+  const [saving, setSaving] = useState(false)
+  const [conflict, setConflict] = useState('')
+
+  function checkConflict(isoStr) {
+    if (!isoStr) { setConflict(''); return }
+    const t = new Date(isoStr).getTime()
+    const twoHours = 2 * 60 * 60 * 1000
+    const clash = schedule.find((g) => {
+      if (existing && g.id === existing.id) return false
+      if (!g.scheduledAt) return false
+      return Math.abs(new Date(g.scheduledAt).getTime() - t) < twoHours
+    })
+    setConflict(clash ? `Conflict: already have a game within 2 hours (${new Date(clash.scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })})` : '')
+  }
+
+  async function handleSave(e) {
+    e.preventDefault()
+    if (!opponent.trim()) return
+    setSaving(true)
+    try {
+      const data = {
+        awayTeam:    opponent.trim(),
+        homeTeam:    club?.name || 'Home',
+        venue:       venue.trim(),
+        gameType,
+        scheduledAt: dateTime || null,
+        sport:       club?.sport || 'basketball',
+      }
+      if (existing) {
+        await updateGame(existing.id, data)
+      } else {
+        await createScheduledGame(clubId, data)
+      }
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
+      onClick={onClose}>
+      <div className="w-full max-w-sm rounded-t-3xl bg-gray-900 p-6 sm:rounded-2xl space-y-4"
+        onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-bold text-white">
+          {existing ? 'Edit Scheduled Game' : 'Schedule a Game'}
+        </h3>
+
+        <form onSubmit={handleSave} className="space-y-3">
+          <div>
+            <label className="mb-1.5 block text-sm text-gray-400">Opponent *</label>
+            <input
+              type="text"
+              value={opponent}
+              onChange={(e) => setOpponent(e.target.value)}
+              placeholder="Opponent team name"
+              required
+              autoFocus
+              className="input"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm text-gray-400">Date &amp; Time</label>
+            <input
+              type="datetime-local"
+              value={dateTime}
+              onChange={(e) => { setDateTime(e.target.value); checkConflict(e.target.value) }}
+              className="input"
+            />
+            {conflict && (
+              <p className="mt-1 text-xs text-orange-400">⚠ {conflict}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm text-gray-400">Venue / Location</label>
+            <input
+              type="text"
+              value={venue}
+              onChange={(e) => setVenue(e.target.value)}
+              placeholder="Gym name, field address, etc."
+              className="input"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm text-gray-400">Game Type</label>
+            <div className="flex gap-2">
+              {GAME_TYPES.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setGameType(t)}
+                  className={`flex-1 rounded-xl py-2 text-sm font-semibold capitalize transition ${
+                    gameType === t ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+            <button type="submit" disabled={saving || !opponent.trim()} className="btn-primary flex-1">
+              {saving ? 'Saving…' : existing ? 'Save Changes' : 'Add to Schedule'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }

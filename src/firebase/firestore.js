@@ -221,6 +221,79 @@ export async function markGameFinal(gameId) {
 }
 
 /**
+ * Create a pre-scheduled game stub (no scorekeeper session yet).
+ * status: 'scheduled' — listed on ClubPage schedule section.
+ */
+export async function createScheduledGame(clubId, {
+  homeTeam, awayTeam, sport,
+  scheduledAt, venue, gameType,
+  awayClubId,
+}) {
+  const ref = await addDoc(collection(db, 'games'), {
+    clubId,
+    sport:        sport || 'basketball',
+    status:       'scheduled',
+    homeTeam,
+    awayTeam,
+    homeScore:    0,
+    awayScore:    0,
+    scheduledAt:  scheduledAt || null,
+    venue:        venue       || '',
+    gameType:     gameType    || 'regular',
+    awayClubId:   awayClubId  || null,
+    joinCode:     null,
+    scorekeeperId: null,
+    // Baseball / basketball placeholders
+    period: 1, totalPeriods: null, periodLength: null, clockElapsed: 0, clockRunning: false,
+    inning: 1, inningHalf: 'top', outs: 0, totalInnings: null,
+    bases: null, balls: null, strikes: null,
+    homeLineup: [], awayLineup: [], homeBatterIdx: 0, awayBatterIdx: 0,
+    tournamentId: null, bracketMatchId: null, leagueId: null,
+    homeLeagueTeamId: null, awayLeagueTeamId: null,
+    lastPlayId: null, lastPlayUndone: false, peerId: null,
+    createdAt: serverTimestamp(), startedAt: null, endedAt: null,
+  })
+  return ref.id
+}
+
+/**
+ * Subscribe to all scheduled (pre-game) stubs for a club, sorted by scheduledAt.
+ */
+export function subscribeToClubSchedule(clubId, onChange) {
+  const q = query(
+    collection(db, 'games'),
+    where('clubId', '==', clubId),
+    where('status', '==', 'scheduled'),
+    orderBy('scheduledAt', 'asc')
+  )
+  return onSnapshot(q, (snap) => {
+    onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+  })
+}
+
+/**
+ * Find a claimed player profile for the given uid.
+ * Returns null or { clubId, playerId, ...playerData }
+ */
+export async function getClaimedPlayerProfile(uid) {
+  if (!uid) return null
+  const snap = await getDocs(
+    query(
+      collectionGroup(db, 'players'),
+      where('uid', '==', uid),
+      limit(1)
+    )
+  )
+  if (snap.empty) return null
+  const d = snap.docs[0]
+  return {
+    playerId: d.id,
+    clubId:   d.ref.parent.parent.id,
+    ...d.data(),
+  }
+}
+
+/**
  * Save a team's batting order to the game doc.
  * team: 'home' | 'away'
  * lineup: [{ playerId, playerName, playerNumber, position }]
