@@ -6,30 +6,31 @@ export function isPremium(userDoc) {
 }
 
 // Notable play types that trigger player follow alerts
+// Keys must match actual play type strings from BB_PLAY_TYPES / PLAY_TYPES
 export const NOTABLE_PLAY_TYPES = new Set([
-  // Baseball
-  'home_run', 'triple', 'double',
-  'strikeout',
-  'run_scored',
-  // Basketball
-  '3pt', '2pt', 'steal', 'block',
+  // Baseball / Softball (BB_PLAY_TYPES)
+  'homeRun', 'triple', 'double', 'strikeout', 'run',
+  // Basketball (PLAY_TYPES)
+  'score_3', 'score_2', 'steal', 'block',
   // Soccer / volleyball / flag-football
-  'goal', 'score',
+  'goal', 'touchdown', 'ace', 'kill',
 ])
 
 export function getNotablePlayLabel(type, sport) {
   const labels = {
-    home_run:   '💥 Home Run!',
-    triple:     '🏃 Triple!',
-    double:     '🏃 Double!',
-    strikeout:  '🔥 Strikeout!',
-    run_scored: '🏠 Run Scored!',
-    '3pt':      '🔥 3-Pointer!',
-    '2pt':      '🏀 Basket!',
-    steal:      '⚡ Steal!',
-    block:      '🛡 Block!',
-    goal:       '⚽ Goal!',
-    score:      '✅ Score!',
+    homeRun:   '💥 Home Run!',
+    triple:    '🏃 Triple!',
+    double:    '🏃 Double!',
+    strikeout: '🔥 Strikeout!',
+    run:       '🏠 Run Scored!',
+    score_3:   '🔥 3-Pointer!',
+    score_2:   '🏀 Basket!',
+    steal:     '⚡ Steal!',
+    block:     '🛡 Block!',
+    goal:      '⚽ Goal!',
+    touchdown: '🏈 Touchdown!',
+    ace:       '🎾 Ace!',
+    kill:      '💥 Kill!',
   }
   return labels[type] || null
 }

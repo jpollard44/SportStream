@@ -98,7 +98,7 @@ export default function RolePickerPage() {
     if (!user || !selected.length) return
     setSaving(true)
     try {
-      await updateUserProfile(user.uid, { role: selected })
+      await updateUserProfile(user.uid, { role: selected, onboardingCompleted: true })
       navigate(from, { replace: true })
     } catch {
       navigate(from, { replace: true })
@@ -107,7 +107,10 @@ export default function RolePickerPage() {
     }
   }
 
-  function handleSkip() {
+  async function handleSkip() {
+    if (user) {
+      await updateUserProfile(user.uid, { onboardingCompleted: true }).catch(() => {})
+    }
     navigate(from, { replace: true })
   }
 

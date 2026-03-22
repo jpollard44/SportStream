@@ -50,7 +50,7 @@ export default function LoginPage() {
       const googleUser = await loginWithGoogle()
       // Check if this user has selected a role yet
       const userData = await getUser(googleUser.uid).catch(() => null)
-      if (!userData?.role) {
+      if (!userData?.onboardingCompleted) {
         navigate('/onboarding', { replace: true, state: { from } })
       } else {
         navigate(from, { replace: true })

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useGame } from '../hooks/useGame'
 import { formatClock, periodLabel, inningLabel } from '../lib/formatters'
 import {
@@ -196,6 +196,7 @@ export default function PublicGamePage() {
   const { gameId } = useParams()
   const { game, plays, loading } = useGame(gameId)
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [tab, setTab] = useState('score')
   const [selectedTeam, setSelectedTeam] = useState(null)
   const [followedPlayers, setFollowedPlayers] = useState([])
@@ -380,7 +381,10 @@ export default function PublicGamePage() {
         user={user}
         followedClubs={followedClubs}
         onFollow={async (clubId) => {
-          if (!user) return
+          if (!user) {
+            navigate(`/login?redirect=/game/${gameId}`)
+            return
+          }
           if (followedClubs.includes(clubId)) await unfollowClub(user.uid, clubId)
           else await followClub(user.uid, clubId)
         }}

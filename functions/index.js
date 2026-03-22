@@ -323,20 +323,21 @@ exports.createChipInSession = onRequest(
 
 // ── onNewPlay — notify player followers on notable plays ──────────────────────
 const NOTABLE_PLAY_LABELS = {
-  // baseball / softball
-  home_run:   'hit a HOME RUN',
-  triple:     'hit a TRIPLE',
-  double:     'hit a DOUBLE',
-  strikeout:  'struck out',
-  // basketball
-  '3pt':      'hit a 3-pointer',
-  '3pt_miss': null, // not notable
+  // baseball / softball — play types from BB_PLAY_TYPES (camelCase)
+  homeRun:   'hit a HOME RUN',
+  triple:    'hit a TRIPLE',
+  double:    'hit a DOUBLE',
+  strikeout: 'struck out',
+  // basketball — play types from PLAY_TYPES
+  score_3:   'hit a 3-pointer',
+  block:     'got a block',
+  steal:     'got a steal',
   // soccer / flag-football
-  goal:       'scored a goal',
-  touchdown:  'scored a touchdown',
+  goal:      'scored a goal',
+  touchdown: 'scored a touchdown',
   // volleyball
-  ace:        'hit an ace',
-  kill:       'got a kill',
+  ace:       'hit an ace',
+  kill:      'got a kill',
 }
 
 exports.onNewPlay = onDocumentCreated('games/{gameId}/plays/{playId}', async (event) => {
