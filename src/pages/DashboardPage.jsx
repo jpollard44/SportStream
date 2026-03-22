@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
   subscribeToUserClubs, createClub, deleteClub,
@@ -31,7 +31,9 @@ function RecordBadge({ record }) {
 export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState('home')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = searchParams.get('tab') || 'home'
+  function setTab(t) { setSearchParams(t === 'home' ? {} : { tab: t }, { replace: true }) }
   const [clubs, setClubs] = useState([])
   const [tournaments, setTournaments] = useState([])
   const [leagues, setLeagues] = useState([])
@@ -164,30 +166,6 @@ export default function DashboardPage() {
         <p className="text-sm text-gray-400">
           Welcome back, <span className="font-semibold text-white">{user?.displayName || user?.email?.split('@')[0]}</span>
         </p>
-      </div>
-
-      {/* Inline tab nav */}
-      <div className="flex border-b border-white/5 bg-[#0f1117]">
-        {[
-          { id: 'home',      label: 'Home',     icon: '⊞' },
-          { id: 'clubs',     label: 'My Teams', icon: '🏟' },
-          { id: 'events',    label: 'Events',   icon: '🏆' },
-          { id: 'following', label: 'Following', icon: '⭐' },
-        ].map(({ id, label, icon }) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className={`relative flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold transition ${
-              tab === id ? 'text-blue-400' : 'text-gray-600 hover:text-gray-400'
-            }`}
-          >
-            <span className="text-base leading-none">{icon}</span>
-            {label}
-            {tab === id && (
-              <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 rounded-full bg-blue-500" />
-            )}
-          </button>
-        ))}
       </div>
 
       <div className="flex-1 overflow-y-auto pb-20">

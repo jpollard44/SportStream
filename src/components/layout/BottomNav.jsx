@@ -18,11 +18,11 @@ function getNavItems(roles = []) {
 
   if (r.includes('fan') && !r.includes('host') && !r.includes('manager')) {
     return [
-      { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
-      { to: '/find',         label: 'Discover',  Icon: SearchIcon },
-      { to: '/dashboard',    label: 'Following', Icon: StarIcon, tab: 'following' },
-      { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
-      { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
+      { to: '/dashboard',              label: 'Home',      Icon: HomeIcon },
+      { to: '/find',                   label: 'Discover',  Icon: SearchIcon },
+      { to: '/dashboard?tab=following', label: 'Following', Icon: StarIcon },
+      { to: '/wall-of-fame',           label: 'Fame',      Icon: FameIcon },
+      { to: '/settings',               label: 'Profile',   Icon: ProfileIcon },
     ]
   }
 
@@ -38,31 +38,31 @@ function getNavItems(roles = []) {
 
   if (r.includes('player') && !r.includes('host') && !r.includes('manager')) {
     return [
-      { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
-      { to: '/dashboard',    label: 'My Team',   Icon: TeamIcon, tab: 'clubs' },
-      { to: '/find',         label: 'Find',      Icon: SearchIcon },
-      { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
-      { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
+      { to: '/dashboard',           label: 'Home',    Icon: HomeIcon },
+      { to: '/dashboard?tab=clubs', label: 'My Team', Icon: TeamIcon },
+      { to: '/find',                label: 'Find',    Icon: SearchIcon },
+      { to: '/wall-of-fame',        label: 'Fame',    Icon: FameIcon },
+      { to: '/settings',            label: 'Profile', Icon: ProfileIcon },
     ]
   }
 
   if (r.includes('manager') && !r.includes('host')) {
     return [
-      { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
-      { to: '/dashboard',    label: 'Roster',    Icon: TeamIcon, tab: 'clubs' },
-      { to: '/dashboard',    label: 'Schedule',  Icon: CalendarIcon, tab: 'events' },
-      { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
-      { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
+      { to: '/dashboard',            label: 'Home',     Icon: HomeIcon },
+      { to: '/dashboard?tab=clubs',  label: 'Roster',   Icon: TeamIcon },
+      { to: '/dashboard?tab=events', label: 'Schedule', Icon: CalendarIcon },
+      { to: '/wall-of-fame',         label: 'Fame',     Icon: FameIcon },
+      { to: '/settings',             label: 'Profile',  Icon: ProfileIcon },
     ]
   }
 
   // Host or default
   return [
-    { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
-    { to: '/dashboard',    label: 'My Teams',  Icon: TeamIcon, tab: 'clubs' },
-    { to: '/dashboard',    label: 'Events',    Icon: TrophyIcon, tab: 'events' },
-    { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
-    { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
+    { to: '/dashboard',            label: 'Home',     Icon: HomeIcon },
+    { to: '/dashboard?tab=clubs',  label: 'My Teams', Icon: TeamIcon },
+    { to: '/dashboard?tab=events', label: 'Events',   Icon: TrophyIcon },
+    { to: '/wall-of-fame',         label: 'Fame',     Icon: FameIcon },
+    { to: '/settings',             label: 'Profile',  Icon: ProfileIcon },
   ]
 }
 
@@ -85,13 +85,21 @@ export default function BottomNav() {
   const items = getNavItems(userRole)
   const path = location.pathname
 
+  const currentTab = new URLSearchParams(location.search).get('tab') || 'home'
+
   function isActive(item) {
     if (item.to === '/settings')     return path === '/settings'
     if (item.to === '/join')         return path === '/join'
     if (item.to === '/find')         return path === '/find'
     if (item.to === '/wall-of-fame') return path === '/wall-of-fame'
     if (item.to === '/tournaments')  return path.startsWith('/tournament') || path.startsWith('/league')
-    if (item.to === '/dashboard')    return path === '/dashboard' || path.startsWith('/club')
+    if (item.to.startsWith('/dashboard')) {
+      if (!path.startsWith('/dashboard') && !path.startsWith('/club')) return false
+      const itemTab = item.to.includes('?tab=') ? item.to.split('?tab=')[1] : 'home'
+      // /club/* always highlights the Home item
+      if (path.startsWith('/club')) return itemTab === 'home'
+      return itemTab === currentTab
+    }
     return false
   }
 
