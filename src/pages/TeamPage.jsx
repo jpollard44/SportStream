@@ -198,7 +198,7 @@ export default function TeamPage() {
                     : 'bg-blue-600 text-white hover:bg-blue-500'
                 }`}
               >
-                {followLoading ? '…' : isFollowing ? '✓ Following' : '+ Follow'}
+                {followLoading ? '…' : isFollowing ? '✓ Fan' : '+ Become a Fan'}
               </button>
               <button
                 onClick={handleShare}
@@ -393,7 +393,7 @@ export default function TeamPage() {
                           : 'bg-blue-900/50 text-blue-300 hover:bg-blue-800'
                       }`}
                     >
-                      {pIsFollowing ? '✓' : '+ Follow'}
+                      {pIsFollowing ? '✓ Fan' : '+ Fan'}
                     </button>
                   </div>
                 )
@@ -409,9 +409,9 @@ export default function TeamPage() {
           onClick={() => setShowSignInPrompt(false)}>
           <div className="w-full max-w-xs rounded-2xl bg-gray-900 p-6 text-center"
             onClick={(e) => e.stopPropagation()}>
-            <p className="mb-1 text-lg font-bold text-white">Sign in to follow</p>
+            <p className="mb-1 text-lg font-bold text-white">Sign in to become a fan</p>
             <p className="mb-5 text-sm text-gray-400">
-              Create a free account to follow {club.name} and get notified when they go live.
+              Create a free account to become a fan of {club.name} and get notified when they go live.
             </p>
             <Link to="/login" className="btn-primary mb-3 block">Sign in / Sign up →</Link>
             <button onClick={() => setShowSignInPrompt(false)} className="text-sm text-gray-500 hover:text-white">

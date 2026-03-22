@@ -7,7 +7,8 @@ export default function LoginPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = location.state?.from?.pathname || '/dashboard'
+  const params = new URLSearchParams(location.search)
+  const from = params.get('redirect') || location.state?.from?.pathname || '/dashboard'
 
   const [mode, setMode] = useState('login') // 'login' | 'register'
   const [email, setEmail] = useState('')

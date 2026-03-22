@@ -59,6 +59,13 @@ service cloud.firestore {
       }
     }
 
+    // Invites: public read (needed for claim page), auth create/update
+    match /invites/{token} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
     // Leagues: public read, host write, open team registration
     match /leagues/{leagueId} {
       allow read: if true;

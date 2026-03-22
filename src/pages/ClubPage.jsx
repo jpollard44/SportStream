@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useClub } from '../hooks/useClub'
-import { addPlayer, updatePlayer, deletePlayer, updateClub, subscribeToClubGames, deleteGame, markGameFinal } from '../firebase/firestore'
+import { addPlayer, updatePlayer, deletePlayer, updateClub, subscribeToClubGames, deleteGame, markGameFinal, createInvite } from '../firebase/firestore'
 import { uploadClubLogo, uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate } from '../lib/formatters'
 import { SPORT_POSITIONS } from '../lib/baseballHelpers'
@@ -27,6 +27,10 @@ export default function ClubPage() {
   // Game actions
   const [confirmDeleteGame, setConfirmDeleteGame] = useState(null)
   const [deletingGame, setDeletingGame] = useState(false)
+
+  // Invite link
+  const [inviteLink, setInviteLink] = useState(null)
+  const [inviteCopied, setInviteCopied] = useState(false)
 
   // CSV import
   const [showCsvImport, setShowCsvImport] = useState(false)
@@ -137,7 +141,11 @@ export default function ClubPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      await addPlayer(clubId, { name: name.trim(), nickname: nickname.trim(), number, position, email: email.trim(), phone: phone.trim() })
+      const playerId = await addPlayer(clubId, { name: name.trim(), nickname: nickname.trim(), number, position, email: email.trim(), phone: phone.trim() })
+      if (email.trim()) {
+        const token = await createInvite(clubId, playerId, name.trim(), email.trim())
+        setInviteLink(`${window.location.origin}/invite/${token}`)
+      }
       resetAddForm()
       setShowAddPlayer(false)
     } finally { setSaving(false) }
@@ -496,6 +504,37 @@ export default function ClubPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Invite Link Modal ── */}
+      {inviteLink && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6">
+          <div className="w-full max-w-sm rounded-2xl bg-gray-900 p-6">
+            <p className="mb-1 text-lg font-bold text-white">Player Added!</p>
+            <p className="mb-4 text-sm text-gray-400">
+              Share this invite link so the player can claim their profile and view personal stats.
+            </p>
+            <div className="flex items-center gap-2 rounded-xl bg-gray-800 px-3 py-2.5">
+              <p className="flex-1 truncate font-mono text-xs text-gray-300">{inviteLink}</p>
+              <button
+                onClick={async () => {
+                  await navigator.clipboard.writeText(inviteLink).catch(() => {})
+                  setInviteCopied(true)
+                  setTimeout(() => setInviteCopied(false), 2000)
+                }}
+                className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 transition"
+              >
+                {inviteCopied ? '✓ Copied!' : 'Copy'}
+              </button>
+            </div>
+            <button
+              onClick={() => { setInviteLink(null); setInviteCopied(false) }}
+              className="mt-4 w-full rounded-xl py-2.5 text-sm text-gray-500 hover:text-gray-300 transition"
+            >
+              Done
+            </button>
           </div>
         </div>
       )}

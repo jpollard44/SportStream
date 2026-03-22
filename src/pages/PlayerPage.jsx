@@ -233,7 +233,7 @@ export default function PlayerPage() {
                   : 'bg-blue-600 text-white hover:bg-blue-500'
               }`}
             >
-              {followLoading ? '…' : isFollowing ? '✓ Following' : '+ Follow'}
+              {followLoading ? '…' : isFollowing ? '✓ Fan' : '+ Be a Fan'}
             </button>
           </div>
         </div>

@@ -174,7 +174,7 @@ export default function DashboardPage() {
           { id: 'home',      label: 'Home',      icon: '⊞' },
           { id: 'clubs',     label: 'My Teams',  icon: '🏟' },
           { id: 'events',    label: 'Events',    icon: '🏆' },
-          { id: 'following', label: 'Following', icon: '❤' },
+          { id: 'following', label: 'My Fans', icon: '❤' },
         ].map(({ id, label, icon }) => (
           <button
             key={id}
@@ -453,7 +453,7 @@ function HomeTab({ clubs, clubRecords, liveGames, followedGames, onCreateClub, o
       {followedGames.length > 0 && (
         <div>
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Following Activity</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Fan Activity</p>
             <button onClick={() => setTab('following')} className="text-[10px] text-blue-400 hover:text-blue-300">
               See all →
             </button>
@@ -495,7 +495,7 @@ function HomeTab({ clubs, clubRecords, liveGames, followedGames, onCreateClub, o
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-gray-700 px-8 py-14 text-center">
           <span className="text-5xl">🏀</span>
           <p className="font-semibold text-white">Get started</p>
-          <p className="text-sm text-gray-400">Create a team, host a tournament, or follow your favorite teams.</p>
+          <p className="text-sm text-gray-400">Create a team, host a tournament, or become a fan of your favorite teams.</p>
           <button onClick={onCreateClub} className="btn-primary mt-2 w-auto px-8">Create Team</button>
         </div>
       )}
@@ -760,7 +760,7 @@ function FollowingTab({ followedClubs, followedPlayers, followedClubData, follow
                           : 'bg-blue-600 text-white hover:bg-blue-500'
                       }`}
                     >
-                      {isFollowing ? 'Following' : 'Follow'}
+                      {isFollowing ? '✓ Fan' : '+ Be a Fan'}
                     </button>
                   </div>
                 )
@@ -774,7 +774,7 @@ function FollowingTab({ followedClubs, followedPlayers, followedClubData, follow
       {followedClubs.length > 0 && (
         <div>
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
-            Following ({followedClubs.length})
+            Teams ({followedClubs.length})
           </p>
           {followedClubData.length === 0 ? (
             <div className="flex justify-center py-6">
@@ -799,7 +799,7 @@ function FollowingTab({ followedClubs, followedPlayers, followedClubData, follow
                     onClick={() => onUnfollow(club.id)}
                     className="shrink-0 text-xs text-gray-600 hover:text-red-400 transition"
                   >
-                    Unfollow
+                    Remove
                   </button>
                 </div>
               ))}
@@ -812,7 +812,7 @@ function FollowingTab({ followedClubs, followedPlayers, followedClubData, follow
       {followedPlayers.length > 0 && (
         <div>
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
-            Following Players ({followedPlayers.length})
+            Players ({followedPlayers.length})
           </p>
           <div className="flex flex-col gap-2">
             {followedPlayers.map((fp) => (
@@ -841,7 +841,7 @@ function FollowingTab({ followedClubs, followedPlayers, followedClubData, follow
                   onClick={() => onUnfollowPlayer(fp.playerId)}
                   className="shrink-0 text-xs text-gray-600 hover:text-red-400 transition"
                 >
-                  Unfollow
+                  Remove
                 </button>
               </div>
             ))}
@@ -856,7 +856,7 @@ function FollowingTab({ followedClubs, followedPlayers, followedClubData, follow
           <div className="rounded-2xl border border-dashed border-gray-700 px-8 py-10 text-center">
             <p className="text-sm text-gray-400">
               {followedClubs.length === 0
-                ? 'Follow teams above to see their games here.'
+                ? 'Become a fan of teams above to see their games here.'
                 : 'No recent games from teams you follow.'}
             </p>
           </div>

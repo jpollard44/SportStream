@@ -2,6 +2,7 @@ import {
   collection,
   collectionGroup,
   doc,
+  setDoc,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -446,6 +447,34 @@ export async function getClubRecord(clubId) {
     else if (g.homeScore > g.awayScore) l++
   })
   return { w, l, str: `${w}-${l}` }
+}
+
+// ─── Player Invites ──────────────────────────────────────────────────────────
+
+export async function createInvite(clubId, playerId, playerName, email) {
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  const token = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('')
+  await setDoc(doc(db, 'invites', token), {
+    clubId, playerId, playerName, email,
+    claimed: false, claimedBy: null,
+    createdAt: serverTimestamp(),
+  })
+  return token
+}
+
+export async function getInvite(token) {
+  const snap = await getDoc(doc(db, 'invites', token))
+  return snap.exists() ? { token, ...snap.data() } : null
+}
+
+export async function claimInvite(token, uid) {
+  const invite = await getInvite(token)
+  if (!invite) throw new Error('Invite not found')
+  if (invite.claimed) throw new Error('Invite already claimed')
+  await updateDoc(doc(db, 'clubs', invite.clubId, 'players', invite.playerId), { uid })
+  await updateDoc(doc(db, 'invites', token), { claimed: true, claimedBy: uid, claimedAt: serverTimestamp() })
+  return invite
 }
 
 // Returns all non-undone plays for a player across all games (collectionGroup query)
