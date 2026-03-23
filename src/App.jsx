@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route, Navigate, Link } from 'react-router-dom'
+import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
 import { useNotifications } from './hooks/useNotifications'
+import { useAuth } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
+import NotificationCenter from './components/NotificationCenter'
+import ProfileDropdown from './components/ProfileDropdown'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
@@ -25,6 +29,7 @@ import LeagueJoinPage from './pages/LeagueJoinPage'
 import FanProfilePage from './pages/FanProfilePage'
 import WallOfFamePage from './pages/WallOfFamePage'
 import RolePickerPage from './pages/RolePickerPage'
+import EmbedPage from './pages/EmbedPage'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import BottomNav from './components/layout/BottomNav'
 
@@ -86,11 +91,24 @@ function InstallPromptBanner() {
   )
 }
 
-export default function App() {
+const HEADER_HIDDEN = ['/scorekeeper/', '/game/', '/login', '/onboarding', '/invite/', '/embed/']
+
+function AppInner() {
   const { toast, dismissToast } = useNotifications()
+  const { user } = useAuth()
+  const location = useLocation()
+  const headerHidden = HEADER_HIDDEN.some((p) => location.pathname.startsWith(p))
 
   return (
     <>
+      {/* Fixed top-right bar: notifications + profile */}
+      {user && !headerHidden && (
+        <div className="fixed top-0 right-0 z-50 p-3 flex items-center gap-2">
+          <NotificationCenter />
+          <ProfileDropdown />
+        </div>
+      )}
+
       {/* Foreground push notification toast */}
       {toast && (
         <div className="fixed top-4 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 px-4 animate-slideDown">
@@ -148,9 +166,18 @@ export default function App() {
         <Route path="/league/:leagueId/join" element={<LeagueJoinPage />} />
         <Route path="/fan/:uid" element={<FanProfilePage />} />
         <Route path="/wall-of-fame" element={<WallOfFamePage />} />
+        <Route path="/embed/game/:gameId" element={<EmbedPage />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
+  )
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
   )
 }

@@ -1,7 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { useState, useEffect } from 'react'
-import { subscribeToUser } from '../../firebase/firestore'
 
 // Pages where bottom nav should NOT show
 const NAV_HIDDEN_PREFIXES = [
@@ -12,86 +10,33 @@ const NAV_HIDDEN_PREFIXES = [
   '/invite/',
 ]
 
-// Build role-specific nav items
-function getNavItems(roles = []) {
-  const r = roles || []
-
-  if (r.includes('fan') && !r.includes('host') && !r.includes('manager')) {
-    return [
-      { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
-      { to: '/find',         label: 'Discover',  Icon: SearchIcon },
-      { to: '/dashboard',    label: 'Following', Icon: StarIcon, tab: 'following' },
-      { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
-      { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
-    ]
-  }
-
-  if (r.includes('scorekeeper') && !r.includes('host') && !r.includes('manager') && !r.includes('player')) {
-    return [
-      { to: '/join',         label: 'Join Game', Icon: JoinIcon },
-      { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
-      { to: '/find',         label: 'Find',      Icon: SearchIcon },
-      { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
-      { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
-    ]
-  }
-
-  if (r.includes('player') && !r.includes('host') && !r.includes('manager')) {
-    return [
-      { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
-      { to: '/dashboard',    label: 'My Team',   Icon: TeamIcon, tab: 'clubs' },
-      { to: '/find',         label: 'Find',      Icon: SearchIcon },
-      { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
-      { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
-    ]
-  }
-
-  if (r.includes('manager') && !r.includes('host')) {
-    return [
-      { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
-      { to: '/dashboard',    label: 'Roster',    Icon: TeamIcon, tab: 'clubs' },
-      { to: '/dashboard',    label: 'Schedule',  Icon: CalendarIcon, tab: 'events' },
-      { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
-      { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
-    ]
-  }
-
-  // Host or default
+function getNavItems() {
   return [
-    { to: '/dashboard',    label: 'Home',      Icon: HomeIcon },
-    { to: '/dashboard',    label: 'My Teams',  Icon: TeamIcon, tab: 'clubs' },
-    { to: '/dashboard',    label: 'Events',    Icon: TrophyIcon, tab: 'events' },
-    { to: '/wall-of-fame', label: 'Fame',      Icon: FameIcon },
-    { to: '/settings',     label: 'Profile',   Icon: ProfileIcon },
+    { to: '/dashboard',               label: 'Home',      Icon: HomeIcon },
+    { to: '/dashboard?tab=clubs',     label: 'My Teams',  Icon: TeamIcon },
+    { to: '/dashboard?tab=events',    label: 'Events',    Icon: TrophyIcon },
+    { to: '/wall-of-fame',            label: 'Fame',      Icon: FameIcon },
+    { to: '/dashboard?tab=following', label: 'Following', Icon: StarIcon },
   ]
 }
 
 export default function BottomNav() {
   const { user } = useAuth()
   const location = useLocation()
-  const [userRole, setUserRole] = useState([])
-
-  useEffect(() => {
-    if (!user) return
-    return subscribeToUser(user.uid, (u) => {
-      setUserRole(u?.role || [])
-    })
-  }, [user])
 
   // Hide on certain pages
   const hidden = NAV_HIDDEN_PREFIXES.some((p) => location.pathname.startsWith(p))
   if (!user || hidden) return null
 
-  const items = getNavItems(userRole)
+  const items = getNavItems()
   const path = location.pathname
 
   function isActive(item) {
-    if (item.to === '/settings')     return path === '/settings'
-    if (item.to === '/join')         return path === '/join'
-    if (item.to === '/find')         return path === '/find'
-    if (item.to === '/wall-of-fame') return path === '/wall-of-fame'
-    if (item.to === '/tournaments')  return path.startsWith('/tournament') || path.startsWith('/league')
-    if (item.to === '/dashboard')    return path === '/dashboard' || path.startsWith('/club')
+    if (item.to === '/wall-of-fame')          return path === '/wall-of-fame'
+    if (item.to === '/dashboard')             return path === '/dashboard' && !location.search
+    if (item.to.includes('tab=clubs'))        return path === '/dashboard' && (location.search.includes('clubs') || path.startsWith('/club'))
+    if (item.to.includes('tab=events'))       return path === '/dashboard' && location.search.includes('events')
+    if (item.to.includes('tab=following'))    return path === '/dashboard' && location.search.includes('following')
     return false
   }
 

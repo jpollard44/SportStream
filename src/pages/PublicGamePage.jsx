@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { collection, doc, onSnapshot, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '../firebase/config'
 import { useGame } from '../hooks/useGame'
 import { formatClock, periodLabel, inningLabel } from '../lib/formatters'
 import {
@@ -190,6 +192,64 @@ function FanStrip({ game, user, followedClubs, onFollow }) {
   )
 }
 
+// ── Reactions Bar ─────────────────────────────────────────────────────────────
+
+function ReactionsBar({ gameId, user }) {
+  const [counts, setCounts] = useState({})
+  const [myReaction, setMyReaction] = useState(null)
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'games', gameId, 'reactions'), (snap) => {
+      const c = {}
+      let mine = null
+      snap.docs.forEach((d) => {
+        const { emoji } = d.data()
+        if (emoji) c[emoji] = (c[emoji] || 0) + 1
+        if (d.id === user?.uid) mine = emoji
+      })
+      setCounts(c)
+      setMyReaction(mine)
+    })
+    return unsub
+  }, [gameId, user?.uid])
+
+  const EMOJIS = ['🔥', '👏', '⚾', '🏀', '❤️']
+
+  async function handleReact(emoji) {
+    if (!user) {
+      alert('Sign in to react!')
+      return
+    }
+    const ref = doc(db, 'games', gameId, 'reactions', user.uid)
+    if (myReaction === emoji) {
+      await deleteDoc(ref)
+    } else {
+      await setDoc(ref, { emoji, updatedAt: serverTimestamp() })
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-800/50 overflow-x-auto">
+      {EMOJIS.map((emoji) => (
+        <button
+          key={emoji}
+          onClick={() => handleReact(emoji)}
+          className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold transition active:scale-95 ${
+            myReaction === emoji
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+          }`}
+        >
+          <span>{emoji}</span>
+          {(counts[emoji] || 0) > 0 && (
+            <span className="text-xs">{counts[emoji]}</span>
+          )}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PublicGamePage() {
@@ -343,8 +403,19 @@ export default function PublicGamePage() {
         )}
         <Link to="/tournaments" className="flex-shrink-0 text-xs text-gray-600 hover:text-gray-400">Tournaments</Link>
         <Link to="/leagues" className="flex-shrink-0 text-xs text-gray-600 hover:text-gray-400">Leagues</Link>
-        <div className="ml-auto flex-shrink-0">
+        <div className="ml-auto flex items-center gap-3 flex-shrink-0">
           <ShareButton joinCode={game.joinCode} label="⬆ Share" />
+          {user && game.scorekeeperId === user.uid && (
+            <button
+              onClick={async () => {
+                const snippet = `<iframe src="${window.location.origin}/embed/game/${gameId}" width="400" height="120" frameborder="0"></iframe>`
+                try { await navigator.clipboard.writeText(snippet) } catch (_) {}
+              }}
+              className="flex-shrink-0 text-xs text-gray-400 hover:text-gray-200 transition"
+            >
+              &lt;/&gt; Embed
+            </button>
+          )}
         </div>
       </div>
 
@@ -374,6 +445,14 @@ export default function PublicGamePage() {
         : <BasketballScoreboardHeader game={game} localSeconds={localSeconds} onTeamClick={goToTeamStats} />
       }
 
+      {/* Game recap (final games only) */}
+      {game.status === 'final' && game.recap && (
+        <div className="mx-4 mt-3 rounded-xl bg-gray-800/60 p-4 border border-gray-700/40">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Game Recap</p>
+          <p className="text-sm text-gray-200 leading-relaxed">{game.recap}</p>
+        </div>
+      )}
+
       {/* Fan strip — Become a Fan of each team + views counter */}
       <FanStrip
         game={game}
@@ -385,6 +464,9 @@ export default function PublicGamePage() {
           else await followClub(user.uid, clubId)
         }}
       />
+
+      {/* Reactions bar */}
+      <ReactionsBar gameId={gameId} user={user} />
 
       {/* Sticky tab bar */}
       <div className="sticky top-0 z-10 flex border-b border-white/5" style={{ background: 'rgba(15,17,23,0.95)', backdropFilter: 'blur(12px)' }}>
