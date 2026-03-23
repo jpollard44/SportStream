@@ -34,6 +34,7 @@ import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import BottomNav from './components/layout/BottomNav'
+import DesktopNav from './components/layout/DesktopNav'
 
 function OfflineBanner() {
   const [offline, setOffline] = useState(false)
@@ -247,9 +248,13 @@ function AppInner() {
       {/* PWA install prompt banner */}
       <InstallPromptBanner />
 
-      {/* Mobile bottom nav (role-aware, hides on scorekeeper/game pages) */}
+      {/* Mobile bottom nav — hidden on desktop */}
       <BottomNav />
 
+      {/* Desktop top nav — hidden on mobile */}
+      {user && !headerHidden && <DesktopNav />}
+
+      <div className={user && !headerHidden ? 'sm:pt-14' : ''}>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -287,6 +292,7 @@ function AppInner() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </div>
     </>
   )
 }

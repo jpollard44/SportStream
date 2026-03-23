@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
   subscribeToUserClubs, createClub, deleteClub,
@@ -7,6 +7,7 @@ import {
   searchClubs, getClub, followClub, unfollowClub,
   subscribeLiveGames, getClubRecord, unfollowPlayer,
   getClaimedPlayerProfile, getRecentPlaysForPlayers,
+  subscribeToScorekeeperGames,
 } from '../firebase/firestore'
 import { subscribeToUserTournaments, deleteTournament } from '../firebase/tournaments'
 import { subscribeToUserLeagues, deleteLeague } from '../firebase/leagues'
@@ -31,7 +32,8 @@ function RecordBadge({ record }) {
 export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState('home')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'home')
   const [clubs, setClubs] = useState([])
   const [tournaments, setTournaments] = useState([])
   const [leagues, setLeagues] = useState([])
@@ -40,6 +42,7 @@ export default function DashboardPage() {
   const [followedClubData, setFollowedClubData] = useState([])
   const [followedGames, setFollowedGames] = useState([])
   const [liveGames, setLiveGames] = useState([])
+  const [scorekeeperGames, setScorekeeperGames] = useState([])
   const [clubRecords, setClubRecords] = useState({})
   const [claimedProfile, setClaimedProfile] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
@@ -48,6 +51,12 @@ export default function DashboardPage() {
   const [newSport, setNewSport] = useState('basketball')
   const [creating, setCreating] = useState(false)
   const [userRole, setUserRole] = useState([])
+
+  // Sync tab from URL query param changes
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    if (t) setTab(t)
+  }, [searchParams])
 
   useEffect(() => {
     if (!user) return
@@ -60,8 +69,9 @@ export default function DashboardPage() {
     })
     const u4 = subscribeToUserLeagues(user.uid, setLeagues)
     const u5 = subscribeLiveGames(setLiveGames)
+    const u6 = subscribeToScorekeeperGames(user.uid, setScorekeeperGames)
     getClaimedPlayerProfile(user.uid).then(setClaimedProfile).catch(() => {})
-    return () => { u1(); u2(); u3(); u4(); u5() }
+    return () => { u1(); u2(); u3(); u4(); u5(); u6() }
   }, [user])
 
   useEffect(() => {
@@ -132,7 +142,7 @@ export default function DashboardPage() {
   const sharedProps = {
     clubs, tournaments, leagues, clubRecords,
     followedClubs, followedPlayers, followedClubData, followedGames, liveGames,
-    claimedProfile, userRole,
+    scorekeeperGames, claimedProfile, userRole,
     onDeleteClub: handleDeleteClub,
     onDeleteTournament: handleDeleteTournament,
     onDeleteLeague: handleDeleteLeague,
@@ -294,7 +304,7 @@ export default function DashboardPage() {
 
 // ── Role Hero ──────────────────────────────────────────────────────────────────
 
-function RoleHero({ userRole, clubs, liveGames, followedGames, claimedProfile, onCreateClub, onStartGame }) {
+function RoleHero({ userRole, clubs, liveGames, followedGames, scorekeeperGames, claimedProfile, onCreateClub, onStartGame }) {
   const roles = userRole || []
 
   // Fan hero: live/upcoming followed games
@@ -346,10 +356,12 @@ function RoleHero({ userRole, clubs, liveGames, followedGames, claimedProfile, o
     )
   }
 
-  // Scorekeeper hero: large join input
+  // Scorekeeper hero: large join input + active/recent games
   if (roles.includes('scorekeeper') && !roles.includes('host') && !roles.includes('manager')) {
+    const activeGames = (scorekeeperGames || []).filter((g) => g.status === 'live' || g.status === 'setup')
+    const recentGames = (scorekeeperGames || []).filter((g) => g.status === 'final').slice(0, 3)
     return (
-      <div className="px-5">
+      <div className="px-5 space-y-4">
         <div className="rounded-2xl bg-gradient-to-br from-green-900/30 to-[#1a1f2e] p-5 ring-1 ring-green-800/30">
           <p className="mb-1 text-xs font-bold uppercase tracking-wider text-green-400">Ready to Score</p>
           <p className="mb-4 text-xl font-extrabold text-white">Join a game</p>
@@ -361,6 +373,48 @@ function RoleHero({ userRole, clubs, liveGames, followedGames, claimedProfile, o
           </Link>
           <p className="mt-3 text-center text-xs text-gray-600">Ask the game host for the 6-digit code</p>
         </div>
+
+        {activeGames.length > 0 && (
+          <div className="rounded-2xl bg-[#1a1f2e] p-4 ring-1 ring-white/5">
+            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-green-400">My Active Games</p>
+            <div className="space-y-2">
+              {activeGames.map((g) => (
+                <Link
+                  key={g.id}
+                  to={`/scorekeeper/${g.id}`}
+                  className="flex items-center justify-between rounded-xl bg-green-950/30 px-4 py-2.5 ring-1 ring-green-800/30 hover:bg-green-950/50 transition"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white">{g.homeTeam} vs {g.awayTeam}</p>
+                    <p className="text-xs text-gray-500">{g.sport} · {g.status === 'live' ? '🔴 Live' : 'Setup'}</p>
+                  </div>
+                  <span className="ml-3 shrink-0 font-mono font-bold text-white">{g.homeScore ?? 0}–{g.awayScore ?? 0}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {recentGames.length > 0 && (
+          <div className="rounded-2xl bg-[#1a1f2e] p-4 ring-1 ring-white/5">
+            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">Recently Scored</p>
+            <div className="space-y-2">
+              {recentGames.map((g) => (
+                <Link
+                  key={g.id}
+                  to={`/game/${g.id}`}
+                  className="flex items-center justify-between rounded-xl px-4 py-2 hover:bg-gray-800/50 transition"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-gray-300">{g.homeTeam} vs {g.awayTeam}</p>
+                    <p className="text-xs text-gray-600">{g.sport} · Final</p>
+                  </div>
+                  <span className="ml-3 shrink-0 text-sm font-mono text-gray-400">{g.homeScore ?? 0}–{g.awayScore ?? 0}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -448,7 +502,7 @@ function RoleHero({ userRole, clubs, liveGames, followedGames, claimedProfile, o
 
 // ── Home tab ───────────────────────────────────────────────────────────────────
 
-function HomeTab({ clubs, clubRecords, liveGames, followedClubs, followedGames, claimedProfile, userRole, onCreateClub, onStartGame, setTab }) {
+function HomeTab({ clubs, clubRecords, liveGames, followedClubs, followedGames, scorekeeperGames, claimedProfile, userRole, onCreateClub, onStartGame, setTab }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -510,6 +564,7 @@ function HomeTab({ clubs, clubRecords, liveGames, followedClubs, followedGames, 
         clubs={clubs}
         liveGames={liveGames}
         followedGames={followedGames}
+        scorekeeperGames={scorekeeperGames}
         claimedProfile={claimedProfile}
         onCreateClub={onCreateClub}
         onStartGame={onStartGame}

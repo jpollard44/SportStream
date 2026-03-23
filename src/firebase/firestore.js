@@ -484,6 +484,15 @@ export function subscribeLiveGames(onChange) {
   })
 }
 
+export function subscribeToScorekeeperGames(uid, onChange) {
+  const q = query(collection(db, 'games'), where('scorekeeperId', '==', uid), limit(20))
+  return onSnapshot(q, (snap) => {
+    const games = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    games.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+    onChange(games.slice(0, 10))
+  })
+}
+
 export function subscribeToFollowedGames(clubIds, onChange) {
   if (!clubIds || clubIds.length === 0) {
     onChange([])
