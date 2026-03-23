@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { logEvent } from 'firebase/analytics'
+import { analytics } from '../firebase/config'
 import {
   subscribeToUserClubs, createClub, deleteClub,
   subscribeToUser, subscribeToFollowedGames,
@@ -93,6 +95,7 @@ export default function DashboardPage() {
     setCreating(true)
     try {
       await createClub(user.uid, { name: newName.trim(), sport: newSport })
+      logEvent(analytics, 'create_club', { sport: newSport })
       setNewName('')
       setShowCreate(false)
       setTab('clubs')

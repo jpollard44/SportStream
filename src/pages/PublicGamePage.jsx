@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { useGame } from '../hooks/useGame'
 import { formatClock, periodLabel, inningLabel } from '../lib/formatters'
 import {
@@ -216,21 +217,7 @@ export default function PublicGamePage() {
     incrementGameViews(gameId).catch(() => {})
   }, [gameId])
 
-  // Update OG / page title when game loads
-  useEffect(() => {
-    if (!game) return
-    const title = `${game.homeTeam} vs ${game.awayTeam} — ${game.status === 'live' ? 'LIVE on' : 'Final |'} SportStream`
-    document.title = title
-    const setMeta = (prop, val) => {
-      let el = document.querySelector(`meta[property="${prop}"]`) ||
-               document.querySelector(`meta[name="${prop}"]`)
-      if (!el) { el = document.createElement('meta'); el.setAttribute(prop.startsWith('og:') || prop.startsWith('twitter:') ? 'property' : 'name', prop); document.head.appendChild(el) }
-      el.setAttribute('content', val)
-    }
-    setMeta('og:title', title)
-    setMeta('og:description', `${game.sport} game — ${game.homeScore}–${game.awayScore}. Follow live on SportStream.`)
-    setMeta('twitter:title', title)
-  }, [game?.homeTeam, game?.awayTeam, game?.status, game?.homeScore, game?.awayScore])
+  // OG tags handled via Helmet below
 
   // Subscribe to user's followed players and clubs
   useEffect(() => {
@@ -313,7 +300,22 @@ export default function PublicGamePage() {
     URL.revokeObjectURL(url)
   }
 
+  const gameTitle = game
+    ? `${game.homeTeam} vs ${game.awayTeam} — ${game.status === 'live' ? 'LIVE on' : 'Final |'} SportStream`
+    : 'SportStream'
+  const gameDesc = game
+    ? `${game.sport} game — ${game.homeScore ?? 0}–${game.awayScore ?? 0}. Follow live on SportStream.`
+    : ''
+
   return (
+    <>
+    <Helmet>
+      <title>{gameTitle}</title>
+      <meta property="og:title" content={gameTitle} />
+      <meta property="og:description" content={gameDesc} />
+      <meta name="twitter:title" content={gameTitle} />
+      <meta name="twitter:description" content={gameDesc} />
+    </Helmet>
     <div className="min-h-screen bg-[#0f1117] pb-10">
       {/* Follow alert */}
       {followAlert && (
@@ -434,6 +436,7 @@ export default function PublicGamePage() {
         </Link>
       </div>
     </div>
+    </>
   )
 }
 

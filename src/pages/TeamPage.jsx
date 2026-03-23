@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { useAuth } from '../context/AuthContext'
 import {
   getClub, getPlayers, subscribeToTeamGames, subscribeToUser,
@@ -217,6 +218,13 @@ export default function TeamPage() {
   ]
 
   return (
+    <>
+    <Helmet>
+      <title>{club.name} — SportStream</title>
+      <meta property="og:title" content={`${club.name} — SportStream`} />
+      <meta property="og:description" content={`Follow ${club.name} live scores, stats, and highlights on SportStream.`} />
+      <meta name="twitter:title" content={`${club.name} — SportStream`} />
+    </Helmet>
     <div className="min-h-screen bg-[#0f1117] pb-20 text-white">
 
       {/* Nav */}
@@ -555,6 +563,7 @@ export default function TeamPage() {
         </div>
       )}
     </div>
+    </>
   )
 }
 

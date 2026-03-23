@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { updateUserProfile } from '../firebase/firestore'
+import { logEvent } from 'firebase/analytics'
+import { analytics } from '../firebase/config'
 
 const ROLES = [
   {
@@ -99,6 +101,7 @@ export default function RolePickerPage() {
     setSaving(true)
     try {
       await updateUserProfile(user.uid, { role: selected })
+      logEvent(analytics, 'sign_up', { role: selected.join(',') })
       navigate(from, { replace: true })
     } catch {
       navigate(from, { replace: true })

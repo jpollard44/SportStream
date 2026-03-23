@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { useAuth } from '../context/AuthContext'
+import { logEvent } from 'firebase/analytics'
+import { analytics } from '../firebase/config'
 import { PageSpinner } from '../components/ui'
 import { getPlayer, getClub, getPlayerHistoricalPlays, subscribeToUser, followPlayer, unfollowPlayer, updatePlayer } from '../firebase/firestore'
 import { useLiveGamePlayers } from '../hooks/useLiveGamePlayers'
@@ -272,6 +275,7 @@ export default function PlayerPage() {
           clubName: club?.name || '',
           clubSport: club?.sport || '',
         })
+        logEvent(analytics, 'player_followed', { sport: club?.sport || '' })
       }
     } finally {
       setFollowLoading(false)
@@ -299,6 +303,13 @@ export default function PlayerPage() {
   const careerBasketball = !isBaseball ? computeBasketballCareer(plays) : null
 
   return (
+    <>
+    <Helmet>
+      <title>{displayName}&apos;s Stats — SportStream</title>
+      <meta property="og:title" content={`${displayName}'s Stats — SportStream`} />
+      <meta property="og:description" content={`${displayName} plays for ${club.name}. View career stats and highlights on SportStream.`} />
+      <meta name="twitter:title" content={`${displayName}'s Stats — SportStream`} />
+    </Helmet>
     <div className="min-h-screen bg-[#0f1117] pb-20 text-white">
       {/* Nav */}
       <nav className="flex items-center justify-between border-b border-white/5 px-5 py-4">
@@ -546,5 +557,6 @@ export default function PlayerPage() {
         </div>
       )}
     </div>
+    </>
   )
 }

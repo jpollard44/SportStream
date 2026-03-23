@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route, Navigate, Link } from 'react-router-dom'
+import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
+import { HelmetProvider } from 'react-helmet-async'
+import { logEvent } from 'firebase/analytics'
+import { analytics } from './firebase/config'
 import { useNotifications } from './hooks/useNotifications'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
@@ -86,10 +89,19 @@ function InstallPromptBanner() {
   )
 }
 
+function PageViewLogger() {
+  const location = useLocation()
+  useEffect(() => {
+    logEvent(analytics, 'page_view', { page_path: location.pathname })
+  }, [location.pathname])
+  return null
+}
+
 export default function App() {
   const { toast, dismissToast } = useNotifications()
 
   return (
+    <HelmetProvider>
     <>
       {/* Foreground push notification toast */}
       {toast && (
@@ -117,6 +129,7 @@ export default function App() {
       {/* Mobile bottom nav (role-aware, hides on scorekeeper/game pages) */}
       <BottomNav />
 
+      <PageViewLogger />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -152,5 +165,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
+    </HelmetProvider>
   )
 }

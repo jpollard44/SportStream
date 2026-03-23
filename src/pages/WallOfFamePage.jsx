@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { logEvent } from 'firebase/analytics'
+import { analytics } from '../firebase/config'
 import { subscribeToUser } from '../firebase/firestore'
 import {
   subscribeToDiscoverHighlights,
@@ -114,6 +116,7 @@ function HighlightCard({ highlight, uid, onSignInRequired }) {
     const h = highlight
     const shareText = `🏆 ${h.playerName} just ${h.playDescription} for ${h.clubName}! Watch on SportStream`
     const shareUrl = `${window.location.origin}/game/${h.gameId}`
+    logEvent(analytics, 'highlight_shared', { sport: h.sport, gameId: h.gameId })
     if (navigator.share) {
       try {
         await navigator.share({

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { updateGame } from '../firebase/firestore'
+import { logEvent } from 'firebase/analytics'
+import { analytics } from '../firebase/config'
 
 /**
  * Manages the local display clock for a game.
@@ -30,11 +32,15 @@ export function useGameClock(game) {
   }, [game?.clockRunning, game?.clockElapsed, game?.period])
 
   async function startClock(gameId) {
+    const isFirstStart = !game.startedAt
     await updateGame(gameId, {
       clockRunning: true,
       status: 'live',
       startedAt: game.startedAt || new Date(),
     })
+    if (isFirstStart) {
+      logEvent(analytics, 'game_started', { sport: game.sport || 'basketball' })
+    }
   }
 
   async function pauseClock(gameId) {
@@ -56,6 +62,9 @@ export function useGameClock(game) {
       status: isGameOver ? 'final' : 'live',
       endedAt: isGameOver ? new Date() : null,
     })
+    if (isGameOver) {
+      logEvent(analytics, 'game_completed', { sport: game.sport || 'basketball' })
+    }
   }
 
   return { displaySeconds, startClock, pauseClock, nextPeriod }
