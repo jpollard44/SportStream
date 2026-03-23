@@ -723,3 +723,27 @@ export async function getPlayerHistoricalPlays(playerId) {
       ...d.data(),
     }))
 }
+
+// ── Club Announcements ────────────────────────────────────────────────────────
+
+export function subscribeToAnnouncements(clubId, cb) {
+  const q = query(
+    collection(db, 'clubs', clubId, 'announcements'),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  )
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
+export async function addAnnouncement(clubId, { text, authorId, authorName }) {
+  return addDoc(collection(db, 'clubs', clubId, 'announcements'), {
+    text,
+    authorId,
+    authorName,
+    createdAt: serverTimestamp(),
+  })
+}
+
+export async function deleteAnnouncement(clubId, announcementId) {
+  return deleteDoc(doc(db, 'clubs', clubId, 'announcements', announcementId))
+}

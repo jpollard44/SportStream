@@ -24,7 +24,13 @@
       "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(git checkout:*)",
-      "Bash(node_modules/.bin/vite build:*)"
+      "Bash(node_modules/.bin/vite build:*)",
+      "Bash(node --check /Users/jordanpollard/SportStream/.claude/worktrees/practical-tesla/functions/index.js)",
+      "Bash(npx --no-install vite build --mode development)",
+      "Bash(git stash:*)",
+      "Bash(node --input-type=module:*)",
+      "Bash(node_modules/.bin/eslint src/pages/ClubPage.jsx src/firebase/firestore.js --no-eslintrc --parser-options=ecmaVersion:latest,sourceType:module,ecmaFeatures:{jsx:true})",
+      "Bash(firebase functions:delete deleteUserData --region us-central1 --force)"
     ]
   }
 }

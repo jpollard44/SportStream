@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useClub } from '../hooks/useClub'
+import { useAuth } from '../context/AuthContext'
 import {
   addPlayer, updatePlayer, deletePlayer, updateClub,
   subscribeToClubGames, subscribeToClubSchedule,
   createScheduledGame, updateGame, deleteGame, markGameFinal, createInvite,
   getClubFanCount, getClubContextOpponents, searchClubs,
   getHeadToHead, getRecentResults, getClubRecord,
+  subscribeToAnnouncements, addAnnouncement, deleteAnnouncement,
 } from '../firebase/firestore'
 import { uploadClubLogo, uploadPlayerPhoto } from '../firebase/storage'
 import { formatDate } from '../lib/formatters'
@@ -18,6 +20,8 @@ const GAME_TYPES = ['regular', 'playoff', 'scrimmage']
 export default function ClubPage() {
   const { clubId } = useParams()
   const { club, players, loading } = useClub(clubId)
+  const { user } = useAuth()
+  const isOwner = !!(user && club && (club.ownerId === user.uid || club.adminIds?.includes(user.uid)))
   const { livePlayerIds, liveGameId } = useLiveGamePlayers(clubId)
   const [games, setGames] = useState([])
   const [schedule, setSchedule] = useState([])
@@ -85,12 +89,27 @@ export default function ClubPage() {
 
   async function handleCsvImport() {
     setCsvImporting(true)
+    const existingNames = new Set(players.map((p) => p.name?.toLowerCase().trim()))
+    let added = 0, skipped = 0
     try {
       for (const row of csvRows) {
-        await addPlayer(clubId, { name: row.name, nickname: row.nickname, number: row.number, position: row.position, email: '', phone: '' })
+        if (existingNames.has(row.name.toLowerCase().trim())) {
+          skipped++
+          continue
+        }
+        await addPlayer(clubId, {
+          name: row.name,
+          nickname: row.nickname || '',
+          number: row.number || '',
+          position: row.position || '',
+          email: '',
+          phone: '',
+        })
+        added++
       }
       setShowCsvImport(false)
       setCsvRows([])
+      showToast(`Imported ${added} player${added !== 1 ? 's' : ''}${skipped > 0 ? `, skipped ${skipped} duplicate${skipped !== 1 ? 's' : ''}` : ''}`)
     } finally {
       setCsvImporting(false)
     }
@@ -161,6 +180,39 @@ export default function ClubPage() {
     if (!showAnalytics || !clubId) return
     getClubFanCount(clubId).then(setFanCount).catch(() => {})
   }, [showAnalytics, clubId])
+
+  // Announcements
+  const [announcements, setAnnouncements] = useState([])
+  const [newAnnText, setNewAnnText] = useState('')
+  const [annSending, setAnnSending] = useState(false)
+  const [activeTab, setActiveTab] = useState('home')
+
+  useEffect(() => {
+    if (!clubId) return
+    return subscribeToAnnouncements(clubId, setAnnouncements)
+  }, [clubId])
+
+  async function sendAnnouncement() {
+    if (!newAnnText.trim()) return
+    setAnnSending(true)
+    try {
+      await addAnnouncement(clubId, {
+        text: newAnnText.trim(),
+        authorId: club?.ownerId || '',
+        authorName: club?.name || 'Team',
+      })
+      setNewAnnText('')
+    } finally {
+      setAnnSending(false)
+    }
+  }
+
+  // Toast
+  const [toast, setToast] = useState(null)
+  function showToast(msg) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 3000)
+  }
 
   function resetAddForm() {
     setName(''); setNickname(''); setNumber(''); setPosition(''); setEmail(''); setPhone('')
@@ -283,7 +335,92 @@ export default function ClubPage() {
         </div>
       </header>
 
+      {/* ── Tab Bar ── */}
+      <div className="border-b border-white/5 bg-[#0f1117] sticky top-0 z-10">
+        <div className="mx-auto max-w-lg flex overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('home')}
+            className={`px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition border-b-2 ${
+              activeTab === 'home'
+                ? 'border-blue-500 text-white'
+                : 'border-transparent text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            Team
+          </button>
+          <button
+            onClick={() => setActiveTab('announcements')}
+            className={`px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition border-b-2 ${
+              activeTab === 'announcements'
+                ? 'border-blue-500 text-white'
+                : 'border-transparent text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            📣 Announcements
+            {announcements.length > 0 && (
+              <span className="ml-1.5 rounded-full bg-blue-600 px-1.5 py-0.5 text-xs text-white">{announcements.length}</span>
+            )}
+          </button>
+        </div>
+      </div>
+
       <main className="mx-auto max-w-lg px-5 space-y-8 pt-6">
+
+        {/* ── Announcements Tab ── */}
+        {activeTab === 'announcements' && (
+          <div className="space-y-4">
+            {isOwner && (
+              <div className="rounded-xl bg-gray-800 p-4 space-y-3">
+                <p className="text-sm font-bold text-white">Post Announcement</p>
+                <textarea
+                  value={newAnnText}
+                  onChange={(e) => setNewAnnText(e.target.value)}
+                  placeholder="Write an announcement for your team members…"
+                  rows={3}
+                  className="w-full rounded-xl bg-gray-900 px-3 py-2.5 text-sm text-white placeholder-gray-600 outline-none resize-none border border-gray-700 focus:border-blue-500"
+                />
+                <button
+                  onClick={sendAnnouncement}
+                  disabled={annSending || !newAnnText.trim()}
+                  className="w-full rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-500 disabled:opacity-50 transition active:scale-95"
+                >
+                  {annSending ? 'Sending…' : 'Post Announcement'}
+                </button>
+              </div>
+            )}
+
+            {announcements.length === 0 ? (
+              <div className="py-12 text-center text-gray-500">
+                <p className="text-3xl mb-2">📣</p>
+                <p className="text-sm">No announcements yet</p>
+              </div>
+            ) : (
+              announcements.map((ann) => (
+                <div key={ann.id} className="rounded-xl bg-gray-800/60 p-4 border border-gray-800">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-blue-400 mb-1">{ann.authorName}</p>
+                      <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{ann.text}</p>
+                      <p className="mt-2 text-xs text-gray-600">
+                        {ann.createdAt?.toDate ? ann.createdAt.toDate().toLocaleString() : 'Just now'}
+                      </p>
+                    </div>
+                    {isOwner && (
+                      <button
+                        onClick={() => deleteAnnouncement(clubId, ann.id)}
+                        className="text-xs text-red-700 hover:text-red-400 shrink-0"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {activeTab === 'home' && <>
 
         {/* ── Schedule ── */}
         <section>
@@ -597,7 +734,16 @@ export default function ClubPage() {
             </div>
           )}
         </section>
+
+        </> /* end activeTab === 'home' */}
       </main>
+
+      {/* ── Toast ── */}
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 rounded-xl bg-gray-800 px-4 py-2 text-sm text-white shadow-xl">
+          {toast}
+        </div>
+      )}
 
       {/* ── Add Player Modal ── */}
       {showAddPlayer && (
@@ -675,52 +821,74 @@ export default function ClubPage() {
       )}
 
       {/* ── CSV Preview Modal ── */}
-      {showCsvImport && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
-          <div className="w-full max-w-md rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl">
-            <h3 className="mb-1 text-lg font-bold text-white">Import {csvRows.length} Players</h3>
-            <p className="mb-4 text-xs text-gray-500">Review before adding to roster</p>
-            <div className="max-h-64 overflow-y-auto rounded-xl border border-white/5">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-gray-800">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-400">Name</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-400">Nick</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-400">#</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-400">Pos</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {csvRows.map((row, i) => (
-                    <tr key={i} className="border-t border-white/5">
-                      <td className="px-3 py-2 text-white">{row.name}</td>
-                      <td className="px-3 py-2 text-gray-400">{row.nickname || '—'}</td>
-                      <td className="px-3 py-2 text-gray-400">{row.number || '—'}</td>
-                      <td className="px-3 py-2 text-gray-400">{row.position || '—'}</td>
+      {showCsvImport && (() => {
+        const existingNamesSet = new Set(players.map((p) => p.name?.toLowerCase().trim()))
+        const newRows = csvRows.filter((r) => !existingNamesSet.has(r.name.toLowerCase().trim()))
+        const dupRows = csvRows.filter((r) => existingNamesSet.has(r.name.toLowerCase().trim()))
+        return (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
+            <div className="w-full max-w-md rounded-t-3xl bg-[#1a1f2e] p-6 sm:rounded-2xl">
+              <div className="mb-1 flex items-baseline justify-between">
+                <h3 className="text-lg font-bold text-white">
+                  {csvRows.length} Row{csvRows.length !== 1 ? 's' : ''} Found
+                </h3>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="rounded-full bg-green-900/50 px-2 py-0.5 text-green-300">{newRows.length} new</span>
+                  {dupRows.length > 0 && (
+                    <span className="rounded-full bg-yellow-900/50 px-2 py-0.5 text-yellow-400">{dupRows.length} duplicate{dupRows.length !== 1 ? 's' : ''}</span>
+                  )}
+                </div>
+              </div>
+              <p className="mb-4 text-xs text-gray-500">Duplicates (same name) will be skipped automatically.</p>
+              <div className="max-h-64 overflow-y-auto rounded-xl border border-white/5">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-gray-800">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-400">Name</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-400">Nick</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-400">#</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-400">Pos</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-400"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-4 flex gap-3">
-              <button
-                onClick={() => { setShowCsvImport(false); setCsvRows([]) }}
-                disabled={csvImporting}
-                className="btn-secondary flex-1"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCsvImport}
-                disabled={csvImporting}
-                className="btn-primary flex-1"
-              >
-                {csvImporting ? 'Importing…' : `Add ${csvRows.length} Players`}
-              </button>
+                  </thead>
+                  <tbody>
+                    {csvRows.map((row, i) => {
+                      const isDup = existingNamesSet.has(row.name.toLowerCase().trim())
+                      return (
+                        <tr key={i} className={`border-t border-white/5 ${isDup ? 'opacity-40' : ''}`}>
+                          <td className="px-3 py-2 text-white">{row.name}</td>
+                          <td className="px-3 py-2 text-gray-400">{row.nickname || '—'}</td>
+                          <td className="px-3 py-2 text-gray-400">{row.number || '—'}</td>
+                          <td className="px-3 py-2 text-gray-400">{row.position || '—'}</td>
+                          <td className="px-3 py-2">
+                            {isDup && <span className="rounded-full bg-yellow-900/50 px-1.5 py-0.5 text-[9px] font-bold text-yellow-500">skip</span>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-4 flex gap-3">
+                <button
+                  onClick={() => { setShowCsvImport(false); setCsvRows([]) }}
+                  disabled={csvImporting}
+                  className="btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCsvImport}
+                  disabled={csvImporting || newRows.length === 0}
+                  className="btn-primary flex-1"
+                >
+                  {csvImporting ? 'Importing…' : `Add ${newRows.length} Player${newRows.length !== 1 ? 's' : ''}`}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── Add / Edit Schedule Modal ── */}
       {(showAddSchedule || editingScheduleGame) && (

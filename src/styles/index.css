@@ -1,3 +1,20 @@
+:root[data-theme="dark"] {
+  --bg: #0f1117;
+  --card: #1a1f2e;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --border: #2d3748;
+  --accent: #2563eb;
+}
+:root[data-theme="light"] {
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --accent: #2563eb;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

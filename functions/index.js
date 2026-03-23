@@ -592,8 +592,156 @@ exports.onGameComplete = onDocumentUpdated('games/{gameId}', async (event) => {
       }
       await batch.commit()
     }
+
+    // Write in-app notifications
+    try {
+      const notifBatch = db.batch()
+      for (const userDoc of allUsersSnap.docs) {
+        const data = userDoc.data()
+        const follows = data.followedPlayers || []
+        const matched = follows.filter(f => playerIdSet.has(f.playerId))
+        if (!matched.length) continue
+        const notifRef = db.collection('users').doc(userDoc.id).collection('notifications').doc()
+        notifBatch.set(notifRef, {
+          type: 'game_complete',
+          title: `Final: ${home} ${finalScore} ${away}`,
+          body: `Check the stats for ${matched.map(f => f.playerName || 'your player').join(', ')}`,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          link: `/game/${gameId}`,
+        })
+      }
+      await notifBatch.commit()
+    } catch (e) {
+      console.error('onGameComplete notification error:', e)
+    }
   } catch (e) {
     console.error('onGameComplete FCM error:', e)
+  }
+
+  // Fetch plays for recap
+  const playsSnap = await db.collection('games').doc(gameId).collection('plays')
+    .where('undone', '!=', true)
+    .get()
+    .catch(() => ({ docs: [] }))
+
+  const plays = playsSnap.docs.map(d => d.data())
+
+  // Generate recap
+  let recap = ''
+  try {
+    const sport = after.sport || 'other'
+    const homeScore = after.homeScore ?? 0
+    const awayScore = after.awayScore ?? 0
+    const winner = homeScore > awayScore ? home : homeScore < awayScore ? away : null
+    const loser  = homeScore > awayScore ? away : homeScore < awayScore ? home : null
+    const recapFinalScore = `${Math.max(homeScore, awayScore)}-${Math.min(homeScore, awayScore)}`
+
+    if (sport === 'baseball' || sport === 'softball') {
+      // Find MVP: most hits/RBIs
+      const stats = {}
+      plays.forEach(p => {
+        if (!p.playerId) return
+        if (!stats[p.playerId]) stats[p.playerId] = { name: p.playerName || 'Player', hits: 0, rbi: 0 }
+        const HIT_TYPES = new Set(['single', 'double', 'triple', 'home_run'])
+        if (HIT_TYPES.has(p.type)) stats[p.playerId].hits++
+        if (p.points) stats[p.playerId].rbi += p.points
+      })
+      let mvp = null, best = 0
+      Object.values(stats).forEach(s => {
+        const score = s.hits * 2 + s.rbi
+        if (score > best) { best = score; mvp = s }
+      })
+      if (winner && loser) {
+        recap = `${winner} defeated ${loser} ${recapFinalScore}`
+        if (mvp && best > 0) recap += `, led by ${mvp.name} (${mvp.hits}H, ${mvp.rbi}RBI)`
+        recap += '.'
+      } else {
+        recap = `${home} and ${away} tied ${homeScore}-${awayScore}.`
+      }
+    } else if (sport === 'basketball') {
+      const stats = {}
+      plays.forEach(p => {
+        if (!p.playerId) return
+        if (!stats[p.playerId]) stats[p.playerId] = { name: p.playerName || 'Player', pts: 0 }
+        if (p.points) stats[p.playerId].pts += p.points
+      })
+      let topScorer = null, most = 0
+      Object.values(stats).forEach(s => {
+        if (s.pts > most) { most = s.pts; topScorer = s }
+      })
+      if (winner && loser) {
+        recap = `${winner} defeated ${loser} ${recapFinalScore}`
+        if (topScorer && most > 0) recap += `, led by ${topScorer.name} with ${most} points`
+        recap += '.'
+      } else {
+        recap = `${home} and ${away} tied ${homeScore}-${awayScore}.`
+      }
+    } else {
+      // Generic recap
+      const stats = {}
+      plays.forEach(p => {
+        if (!p.playerId) return
+        if (!stats[p.playerId]) stats[p.playerId] = { name: p.playerName || 'Player', count: 0 }
+        stats[p.playerId].count++
+      })
+      let top = null, most = 0
+      Object.values(stats).forEach(s => {
+        if (s.count > most) { most = s.count; top = s }
+      })
+      if (winner && loser) {
+        recap = `${winner} defeated ${loser} ${recapFinalScore}`
+        if (top && most > 0) recap += `, with ${top.name} leading the way`
+        recap += '.'
+      } else {
+        recap = `${home} and ${away} tied ${homeScore}-${awayScore}.`
+      }
+    }
+
+    if (recap) {
+      await db.collection('games').doc(gameId).update({ recap })
+    }
+  } catch (e) {
+    console.error('onGameComplete recap error:', e)
+  }
+
+  // Update league standings if this is a league game
+  if (after.leagueId && after.homeLeagueTeamId && after.awayLeagueTeamId) {
+    try {
+      const leagueId = after.leagueId
+      const homeTeamId = after.homeLeagueTeamId
+      const awayTeamId = after.awayLeagueTeamId
+      const homeScore = after.homeScore ?? 0
+      const awayScore = after.awayScore ?? 0
+
+      const homeWin  = homeScore > awayScore
+      const awayWin  = awayScore > homeScore
+      const tied     = homeScore === awayScore
+
+      const homeRef = db.doc(`leagues/${leagueId}/teams/${homeTeamId}`)
+      const awayRef = db.doc(`leagues/${leagueId}/teams/${awayTeamId}`)
+
+      const batch = db.batch()
+      const FieldValue = admin.firestore.FieldValue
+
+      batch.update(homeRef, {
+        wins:           FieldValue.increment(homeWin ? 1 : 0),
+        losses:         FieldValue.increment(awayWin ? 1 : 0),
+        draws:          FieldValue.increment(tied ? 1 : 0),
+        pointsFor:      FieldValue.increment(homeScore),
+        pointsAgainst:  FieldValue.increment(awayScore),
+      })
+      batch.update(awayRef, {
+        wins:           FieldValue.increment(awayWin ? 1 : 0),
+        losses:         FieldValue.increment(homeWin ? 1 : 0),
+        draws:          FieldValue.increment(tied ? 1 : 0),
+        pointsFor:      FieldValue.increment(awayScore),
+        pointsAgainst:  FieldValue.increment(homeScore),
+      })
+      await batch.commit()
+    } catch (e) {
+      console.error('onGameComplete league standings error:', e)
+    }
   }
 })
 
@@ -668,6 +816,25 @@ exports.onGameLive = onDocumentUpdated('games/{gameId}', async (event) => {
   } catch (e) {
     console.error('onGameLive FCM error:', e)
   }
+
+  // Write in-app notifications to followers
+  try {
+    const notifBatch = db.batch()
+    for (const userDoc of usersSnap.docs) {
+      const notifRef = db.collection('users').doc(userDoc.id).collection('notifications').doc()
+      notifBatch.set(notifRef, {
+        type: 'game_live',
+        title: '🔴 Live Now!',
+        body: `${home} vs ${away} is live — tap to watch!`,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        link: `/game/${gameId}`,
+      })
+    }
+    await notifBatch.commit()
+  } catch (e) {
+    console.error('onGameLive notification error:', e)
+  }
 })
 
 // ── compileWeeklyTop10 — runs every Monday at 12:01 AM UTC ────────────────────
@@ -740,5 +907,70 @@ exports.compileWeeklyTop10 = onSchedule('every monday 00:01', async () => {
     console.log(`compileWeeklyTop10: wrote ${sorted.length} highlights for ${weekKey}`)
   } catch (e) {
     console.error('compileWeeklyTop10 error:', e)
+  }
+})
+
+// ── onAnnouncement — notify club members when an announcement is posted ───────
+exports.onAnnouncement = onDocumentCreated('clubs/{clubId}/announcements/{announcementId}', async (event) => {
+  const data    = event.data.data()
+  const clubId  = event.params.clubId
+
+  if (!data) return
+
+  const text       = data.text || ''
+  const authorName = data.authorName || 'Team'
+
+  // Fetch club members (followers of this club)
+  const usersSnap = await db.collection('users')
+    .where('followedClubs', 'array-contains', clubId)
+    .get()
+    .catch(() => null)
+
+  if (!usersSnap || usersSnap.empty) return
+
+  // Send FCM + write notifications
+  const allTokens = []
+  const userIds   = []
+
+  for (const userDoc of usersSnap.docs) {
+    const tokens = userDoc.data().fcmTokens || []
+    allTokens.push(...tokens)
+    userIds.push(userDoc.id)
+  }
+
+  // Write in-app notifications
+  try {
+    const batch = db.batch()
+    for (const uid of userIds) {
+      const notifRef = db.collection('users').doc(uid).collection('notifications').doc()
+      batch.set(notifRef, {
+        type: 'announcement',
+        title: `📣 ${authorName}`,
+        body: text.length > 100 ? text.slice(0, 100) + '…' : text,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        link: `/team/${clubId}`,
+      })
+    }
+    await batch.commit()
+  } catch (e) {
+    console.error('onAnnouncement notification error:', e)
+  }
+
+  if (allTokens.length === 0) return
+
+  try {
+    await admin.messaging().sendEachForMulticast({
+      tokens: allTokens,
+      notification: {
+        title: `📣 ${authorName}`,
+        body: text.length > 100 ? text.slice(0, 100) + '…' : text,
+      },
+      webpush: {
+        notification: { icon: `${APP_URL}/favicon.svg` },
+      },
+    })
+  } catch (e) {
+    console.error('onAnnouncement FCM error:', e)
   }
 })

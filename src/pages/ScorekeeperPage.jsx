@@ -219,6 +219,129 @@ function ScoreEditModal({ team, game, onClose, onSave }) {
   )
 }
 
+// ── Quick action grid ─────────────────────────────────────────────────────────
+
+function QuickActionGrid({ sport, onAction }) {
+  const QUICK_ACTIONS = {
+    basketball: [
+      { type: 'score_2',  label: '2 PT',  emoji: '🏀' },
+      { type: 'score_3',  label: '3 PT',  emoji: '🎯' },
+      { type: 'ft_made',  label: 'FT',    emoji: '✓' },
+      { type: 'ft_miss',  label: 'Miss',  emoji: '✗' },
+      { type: 'rebound',  label: 'Reb',   emoji: '↩' },
+      { type: 'assist',   label: 'Ast',   emoji: '🤝' },
+    ],
+    soccer: [
+      { type: 'goal',        label: 'Goal',   emoji: '⚽' },
+      { type: 'assist',      label: 'Assist', emoji: '🤝' },
+      { type: 'shot',        label: 'Shot',   emoji: '📍' },
+      { type: 'save',        label: 'Save',   emoji: '🧤' },
+      { type: 'yellow_card', label: 'Yellow', emoji: '🟨' },
+      { type: 'corner',      label: 'Corner', emoji: '📐' },
+    ],
+    'flag-football': [
+      { type: 'touchdown',    label: 'TD',   emoji: '🏈' },
+      { type: 'extra_point',  label: 'XP',   emoji: '✓' },
+      { type: 'two_point',    label: '2-PT', emoji: '2️⃣' },
+      { type: 'field_goal',   label: 'FG',   emoji: '🎯' },
+      { type: 'interception', label: 'INT',  emoji: '✋' },
+      { type: 'sack',         label: 'Sack', emoji: '💪' },
+    ],
+  }
+
+  const actions = QUICK_ACTIONS[sport] || [
+    { type: 'score_2', label: 'Score',   emoji: '🏅' },
+    { type: 'penalty', label: 'Penalty', emoji: '🚩' },
+  ]
+
+  return (
+    <div className="grid grid-cols-3 gap-2 px-3 py-2 bg-gray-900/50 border-b border-gray-800">
+      {actions.map((action) => (
+        <button
+          key={action.type}
+          onClick={() => onAction(action.type)}
+          className="flex flex-col items-center justify-center gap-1 rounded-xl bg-gray-800 py-3 text-center transition active:scale-95 hover:bg-gray-700"
+        >
+          <span className="text-xl leading-none">{action.emoji}</span>
+          <span className="text-xs font-semibold text-gray-200">{action.label}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ── Player picker bottom sheet ────────────────────────────────────────────────
+
+function PlayerPickerSheet({ game, onSelect, onClose }) {
+  const homeLineup = game.homeLineup || []
+  const awayLineup = game.awayLineup || []
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[70vh] overflow-y-auto rounded-t-2xl bg-gray-900 pb-safe"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-4 py-3">
+          <p className="text-sm font-bold text-white">Select Player</p>
+          <button onClick={onClose} className="text-gray-500 hover:text-white">✕</button>
+        </div>
+
+        {/* No player option */}
+        <button
+          onClick={() => onSelect(null, null)}
+          className="w-full px-4 py-3 text-left text-sm font-semibold text-gray-400 hover:bg-gray-800 border-b border-gray-800/50 transition"
+        >
+          No Player / Team Play
+        </button>
+
+        {homeLineup.length > 0 && (
+          <>
+            <p className="px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wider text-gray-600">{game.homeTeam}</p>
+            {homeLineup.map((entry) => (
+              <button
+                key={entry.playerId}
+                onClick={() => onSelect(entry.playerId, 'home')}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-gray-800"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-700 text-xs font-bold text-white">
+                  {entry.playerNumber || '#'}
+                </span>
+                <span className="text-sm font-semibold text-white">{entry.playerName}</span>
+              </button>
+            ))}
+          </>
+        )}
+
+        {awayLineup.length > 0 && (
+          <>
+            <p className="px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wider text-gray-600">{game.awayTeam}</p>
+            {awayLineup.map((entry) => (
+              <button
+                key={entry.playerId}
+                onClick={() => onSelect(entry.playerId, 'away')}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-gray-800"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-800 text-xs font-bold text-white">
+                  {entry.playerNumber || '#'}
+                </span>
+                <span className="text-sm font-semibold text-white">{entry.playerName}</span>
+              </button>
+            ))}
+          </>
+        )}
+
+        {homeLineup.length === 0 && awayLineup.length === 0 && (
+          <p className="px-4 py-8 text-center text-sm text-gray-500">No players in lineup. Add players to the roster first.</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ScorekeeperPage() {
@@ -248,6 +371,8 @@ export default function ScorekeeperPage() {
   const [showPlays, setShowPlays]               = useState(false)
   const [editScoreTeam, setEditScoreTeam]       = useState(null)
   const [lineupEditorTeam, setLineupEditorTeam] = useState(null) // 'home'|'away'|null
+  const [quickAction, setQuickAction]           = useState(null)
+  const [showPlayerPicker, setShowPlayerPicker] = useState(false)
 
   useEffect(() => {
     if (!game?.clubId) return
@@ -351,6 +476,50 @@ export default function ScorekeeperPage() {
     showToast('Play removed')
   }
 
+  async function handleQuickPlay(type, playerId, team) {
+    setShowPlayerPicker(false)
+    setQuickAction(null)
+
+    const allLineup = [...(game.homeLineup || []), ...(game.awayLineup || [])]
+    const playerEntry = playerId ? allLineup.find((e) => e.playerId === playerId) : null
+
+    const config = SPORT_CONFIG[sport] || SPORT_CONFIG.basketball
+    const actionDef = [...config.scoring, ...config.stats].find((a) => a.type === type)
+    const scoringTeam = actionDef?.toOpponent ? (team === 'home' ? 'away' : 'home') : team
+    const points = actionDef?.points || 0
+    const scoreDelta = points > 0
+      ? { home: scoringTeam === 'home' ? points : 0, away: scoringTeam === 'away' ? points : 0 }
+      : null
+
+    const event = {
+      type,
+      team,
+      playerId: playerEntry?.playerId || null,
+      playerName: playerEntry?.playerName || 'Team',
+      playerNumber: playerEntry?.playerNumber || '',
+      points,
+      scoreDelta,
+      clockAtPlay: displaySeconds,
+      period: game.period,
+      createdBy: user.uid,
+    }
+
+    try {
+      if (isOnline) {
+        await addPlay(gameId, event)
+      } else {
+        await enqueue(gameId, event)
+      }
+      if (voiceEnabled) {
+        const teamName = team === 'home' ? game.homeTeam : game.awayTeam
+        announcePlay(type, playerEntry?.playerName || null, teamName, sport)
+      }
+      showToast(`${playerEntry?.playerName?.split(' ')[0] || (team === 'home' ? game.homeTeam : game.awayTeam)} — ${actionDef?.label || type}`)
+    } catch (e) {
+      console.error('Quick play error:', e)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-950">
@@ -442,6 +611,17 @@ export default function ScorekeeperPage() {
       <ScoreHeader game={game} onEditScore={!isFinal ? setEditScoreTeam : undefined} />
 
       <GameClock game={game} displaySeconds={displaySeconds} onStart={() => startClock(gameId)} onPause={() => pauseClock(gameId)} onNextPeriod={() => nextPeriod(gameId)} />
+
+      {/* Quick action buttons */}
+      {!isFinal && (
+        <QuickActionGrid
+          sport={sport}
+          onAction={(type) => {
+            setQuickAction(type)
+            setShowPlayerPicker(true)
+          }}
+        />
+      )}
 
       {/* Plays toggle */}
       <div className="flex border-b border-gray-800 bg-gray-950">
@@ -643,6 +823,14 @@ export default function ScorekeeperPage() {
           team={lineupEditorTeam}
           sport={sport}
           onClose={() => setLineupEditorTeam(null)}
+        />
+      )}
+
+      {showPlayerPicker && quickAction && (
+        <PlayerPickerSheet
+          game={game}
+          onSelect={(playerId, team) => handleQuickPlay(quickAction, playerId, team || activeTeam)}
+          onClose={() => { setShowPlayerPicker(false); setQuickAction(null) }}
         />
       )}
 
