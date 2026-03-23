@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { usePlan, PLANS } from '../hooks/usePlan'
 import { logout } from '../firebase/auth'
 import { updateNotificationPrefs, updateUserProfile, subscribeToUser } from '../firebase/firestore'
-import { deleteUser, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth'
+import { deleteUser, EmailAuthProvider, reauthenticateWithCredential, GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
 import { auth } from '../firebase/config'
 
 // Cloud Function URL — Gen 2 Cloud Run URL from deploy output
@@ -97,6 +97,7 @@ function VoiceAnnouncePref() {
 
 export default function SettingsPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { plan: currentPlan, loading } = usePlan(user?.uid)
   const [upgrading, setUpgrading] = useState(null)
@@ -149,9 +150,18 @@ export default function SettingsPage() {
     setDeleteError(null)
     setDeletingAccount(true)
     try {
-      const credential = EmailAuthProvider.credential(user.email, deletePassword)
-      await reauthenticateWithCredential(auth.currentUser, credential)
+      // Determine re-auth method based on sign-in provider
+      const isGoogle = auth.currentUser?.providerData?.some((p) => p.providerId === 'google.com')
+      if (isGoogle) {
+        const googleProvider = new GoogleAuthProvider()
+        await signInWithPopup(auth, googleProvider)
+      } else {
+        const credential = EmailAuthProvider.credential(user.email, deletePassword)
+        await reauthenticateWithCredential(auth.currentUser, credential)
+      }
       await deleteUser(auth.currentUser)
+      // Redirect to landing page with a deleted flag
+      navigate('/?deleted=1', { replace: true })
     } catch (err) {
       setDeleteError(err.message || 'Could not delete account — check your password.')
       setDeletingAccount(false)
@@ -381,6 +391,11 @@ export default function SettingsPage() {
           </a>
           . Subscriptions renew monthly. Cancel anytime.
         </p>
+
+        <div className="mt-4 flex justify-center gap-4 text-xs text-gray-700">
+          <Link to="/privacy" className="hover:text-gray-400 transition">Privacy Policy</Link>
+          <Link to="/terms" className="hover:text-gray-400 transition">Terms of Service</Link>
+        </div>
 
         {/* Danger zone */}
         <div className="mt-10">

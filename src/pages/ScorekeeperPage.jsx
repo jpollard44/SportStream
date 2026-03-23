@@ -531,8 +531,32 @@ export default function ScorekeeperPage() {
   if (!game) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-gray-950 text-gray-400">
-        <p>Game not found.</p>
+        <p className="text-lg font-semibold text-white">Game not found</p>
+        <p className="mt-1 text-sm text-gray-500">This game code may be invalid or expired.</p>
         <Link to="/dashboard" className="mt-4 text-blue-400">Go to Dashboard</Link>
+      </div>
+    )
+  }
+
+  // Non-host guard: if a scorekeeper has been assigned, only they can access this page
+  // (if no scorekeeper assigned yet, any logged-in user who has the join code may score)
+  const isAuthorized = !game.scorekeeperId || game.scorekeeperId === user?.uid
+
+  if (!isAuthorized) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-950 px-6 text-center">
+        <p className="text-4xl">🔒</p>
+        <p className="text-lg font-bold text-white">Scorekeeper access only</p>
+        <p className="text-sm text-gray-400">
+          You're not authorized to keep score for this game.
+          Ask the game host to add you as the scorekeeper.
+        </p>
+        <Link to={`/game/${gameId}`} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-500">
+          Watch game →
+        </Link>
+        <Link to="/dashboard" className="text-sm text-gray-500 hover:text-gray-300">
+          ← Dashboard
+        </Link>
       </div>
     )
   }

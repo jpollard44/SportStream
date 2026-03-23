@@ -1130,15 +1130,31 @@ function FollowingTab({ followedClubs, followedPlayers, followedClubData, follow
         </div>
       )}
 
+      {/* Empty state when not following anyone */}
+      {followedClubs.length === 0 && followedPlayers.length === 0 && (
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-700 px-8 py-14 text-center">
+          <span className="text-4xl">⭐</span>
+          <p className="font-semibold text-white">Follow your first team</p>
+          <p className="text-sm text-gray-500">Search for teams above or browse tournaments and leagues to discover players and teams to follow.</p>
+          <div className="mt-1 flex gap-2">
+            <Link to="/tournaments" className="rounded-full border border-gray-700 px-4 py-2 text-xs text-gray-300 hover:border-gray-500 hover:text-white transition">
+              Tournaments
+            </Link>
+            <Link to="/leagues" className="rounded-full border border-gray-700 px-4 py-2 text-xs text-gray-300 hover:border-gray-500 hover:text-white transition">
+              Leagues
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Recent games from followed teams */}
+      {followedClubs.length > 0 && (
       <div>
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Recent Games</p>
         {followedGames.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-700 px-8 py-10 text-center">
             <p className="text-sm text-gray-400">
-              {followedClubs.length === 0
-                ? 'Become a fan of teams above to see their games here.'
-                : 'No recent games from teams you follow.'}
+              No recent games from teams you follow.
             </p>
           </div>
         ) : (
@@ -1182,6 +1198,7 @@ function FollowingTab({ followedClubs, followedPlayers, followedClubData, follow
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }
