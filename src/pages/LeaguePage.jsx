@@ -422,10 +422,14 @@ export default function LeaguePage() {
 
             {/* Accepted teams */}
             {accepted.length === 0 ? (
-              <p className="py-12 text-center text-sm text-gray-500">
-                No accepted teams yet.{' '}
-                <Link to={`/league/${leagueId}/join`} className="text-blue-400">Register a team →</Link>
-              </p>
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-700 py-14 text-center">
+                <span className="text-3xl">📋</span>
+                <p className="font-semibold text-white">No teams enrolled yet</p>
+                <p className="text-sm text-gray-500">Share the join link so teams can register, or register the first team yourself.</p>
+                <Link to={`/league/${leagueId}/join`} className="rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition">
+                  Register first team →
+                </Link>
+              </div>
             ) : (
               <div className="space-y-2">
                 {accepted.map((t) => (

@@ -742,3 +742,55 @@ exports.compileWeeklyTop10 = onSchedule('every monday 00:01', async () => {
     console.error('compileWeeklyTop10 error:', e)
   }
 })
+
+// ── deleteUserData — runs when a Firebase Auth user is deleted ────────────────
+// Cleans up Firestore data associated with the deleted account.
+const { auth: authV1 } = require('firebase-functions/v1')
+
+exports.deleteUserData = authV1.user().onDelete(async (user) => {
+  const uid = user.uid
+  console.log(`deleteUserData: cleaning up data for uid=${uid}`)
+
+  try {
+    const batch = db.batch()
+
+    // 1. Delete users/{uid}
+    batch.delete(db.doc(`users/${uid}`))
+
+    // 2. Mark clubs owned by this user as deleted (preserve stats for other members)
+    const ownedClubs = await db.collection('clubs').where('ownerId', '==', uid).get().catch(() => null)
+    if (ownedClubs && !ownedClubs.empty) {
+      for (const clubDoc of ownedClubs.docs) {
+        batch.update(clubDoc.ref, { deleted: true, deletedAt: admin.firestore.FieldValue.serverTimestamp() })
+      }
+    }
+
+    // 3. Unclaim any player profiles linked to this uid
+    const allClubsSnap = await db.collection('clubs').get().catch(() => null)
+    if (allClubsSnap && !allClubsSnap.empty) {
+      for (const clubDoc of allClubsSnap.docs) {
+        const playersSnap = await clubDoc.ref.collection('players').where('uid', '==', uid).get().catch(() => null)
+        if (playersSnap && !playersSnap.empty) {
+          for (const playerDoc of playersSnap.docs) {
+            batch.update(playerDoc.ref, { uid: null, claimed: false })
+          }
+        }
+      }
+    }
+
+    // 4. Remove uid from adminIds on any clubs where this user was an admin
+    const adminClubs = await db.collection('clubs').where('adminIds', 'array-contains', uid).get().catch(() => null)
+    if (adminClubs && !adminClubs.empty) {
+      for (const clubDoc of adminClubs.docs) {
+        batch.update(clubDoc.ref, {
+          adminIds: admin.firestore.FieldValue.arrayRemove(uid),
+        })
+      }
+    }
+
+    await batch.commit()
+    console.log(`deleteUserData: cleanup complete for uid=${uid}`)
+  } catch (e) {
+    console.error(`deleteUserData error for uid=${uid}:`, e)
+  }
+})

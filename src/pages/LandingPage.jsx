@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { subscribeLiveGames } from '../firebase/firestore'
 import { AppBadge, LiveBadge } from '../components/ui'
@@ -105,6 +105,8 @@ export default function LandingPage() {
   const { user } = useAuth()
   const [liveGames, setLiveGames] = useState([])
   const [scrolled, setScrolled] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const isDeleted = searchParams.get('deleted') === '1'
 
   useEffect(() => {
     const unsub = subscribeLiveGames(setLiveGames)
@@ -112,6 +114,13 @@ export default function LandingPage() {
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => { unsub(); window.removeEventListener('scroll', onScroll) }
   }, [])
+
+  useEffect(() => {
+    if (isDeleted) {
+      const t = setTimeout(() => setSearchParams({}, { replace: true }), 6000)
+      return () => clearTimeout(t)
+    }
+  }, [isDeleted, setSearchParams])
 
   return (
     <div className="min-h-screen bg-[#0f1117] text-white">
@@ -149,6 +158,19 @@ export default function LandingPage() {
           )}
         </div>
       </nav>
+
+      {/* Account deleted toast */}
+      {isDeleted && (
+        <div className="fixed top-4 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 px-4">
+          <div className="flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-4 shadow-2xl ring-1 ring-white/10">
+            <span className="text-xl">✓</span>
+            <div>
+              <p className="text-sm font-semibold text-white">Account deleted</p>
+              <p className="text-xs text-gray-400">Your account has been permanently removed.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Hero ── */}
       <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-5 pb-16 pt-24 text-center">
@@ -426,11 +448,13 @@ export default function LandingPage() {
           <span className="text-sm font-bold text-gray-600">
             Sport<span className="text-blue-500">Stream</span>
           </span>
-          <div className="flex gap-5 text-xs text-gray-600">
+          <div className="flex flex-wrap gap-5 text-xs text-gray-600">
             <Link to="/tournaments" className="hover:text-gray-400 transition">Tournaments</Link>
             <Link to="/leagues" className="hover:text-gray-400 transition">Leagues</Link>
             <Link to="/find" className="hover:text-gray-400 transition">Find a game</Link>
             <Link to="/login" className="hover:text-gray-400 transition">Sign in</Link>
+            <Link to="/privacy" className="hover:text-gray-400 transition">Privacy</Link>
+            <Link to="/terms" className="hover:text-gray-400 transition">Terms</Link>
           </div>
           <p className="text-xs text-gray-700">© 2026 SportStream</p>
         </div>

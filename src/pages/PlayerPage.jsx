@@ -510,8 +510,10 @@ export default function PlayerPage() {
         )}
 
         {plays.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-white/10 py-14 text-center">
-            <p className="text-sm text-gray-500">No recorded stats yet for {displayName}.</p>
+          <div className="rounded-2xl border border-dashed border-white/10 py-14 text-center px-8">
+            <p className="text-3xl mb-3">📊</p>
+            <p className="font-semibold text-white">No stats yet</p>
+            <p className="mt-1 text-sm text-gray-500">Stats will appear here after games are completed and plays are recorded for {displayName}.</p>
           </div>
         )}
       </div>
