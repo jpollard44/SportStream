@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
   subscribeToUserClubs, createClub, deleteClub,
@@ -31,7 +31,9 @@ function RecordBadge({ record }) {
 export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState('home')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = searchParams.get('tab') || 'home'
+  function setTab(t) { setSearchParams(t === 'home' ? {} : { tab: t }, { replace: true }) }
   const [clubs, setClubs] = useState([])
   const [tournaments, setTournaments] = useState([])
   const [leagues, setLeagues] = useState([])
@@ -166,8 +168,8 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Dashboard tab strip — inline, sticky below header */}
-      <div className="sticky top-0 z-30 flex border-b border-white/5"
+      {/* Dashboard tab strip — desktop only (mobile uses BottomNav) */}
+      <div className="sticky top-0 z-30 hidden sm:flex border-b border-white/5"
         style={{ background: 'rgba(15,17,23,0.97)', backdropFilter: 'blur(16px)' }}
       >
         {[
