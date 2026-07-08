@@ -321,6 +321,43 @@ exports.createChipInSession = onRequest(
   }
 )
 
+// ── claimInvite — link a player profile to the claiming user's account ────────
+// Runs server-side because player docs are admin-write-only and invite docs
+// are immutable to clients under the security rules.
+exports.claimInvite = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in to claim an invite')
+  }
+  const token = request.data?.token
+  if (!token || typeof token !== 'string' || token.length > 128) {
+    throw new HttpsError('invalid-argument', 'token is required')
+  }
+
+  const uid = request.auth.uid
+  const inviteRef = db.doc(`invites/${token}`)
+
+  return db.runTransaction(async (tx) => {
+    const inviteSnap = await tx.get(inviteRef)
+    if (!inviteSnap.exists) throw new HttpsError('not-found', 'Invite not found')
+
+    const invite = inviteSnap.data()
+    if (invite.claimed) throw new HttpsError('failed-precondition', 'Invite already claimed')
+
+    const playerRef = db.doc(`clubs/${invite.clubId}/players/${invite.playerId}`)
+    const playerSnap = await tx.get(playerRef)
+    if (!playerSnap.exists) throw new HttpsError('not-found', 'Player profile not found')
+
+    tx.update(playerRef, { uid })
+    tx.update(inviteRef, {
+      claimed:   true,
+      claimedBy: uid,
+      claimedAt: admin.firestore.FieldValue.serverTimestamp(),
+    })
+
+    return { clubId: invite.clubId, playerId: invite.playerId, playerName: invite.playerName || '' }
+  })
+})
+
 // ── onNewPlay — notify player followers on notable plays ──────────────────────
 const NOTABLE_PLAY_LABELS = {
   // baseball / softball
@@ -347,7 +384,6 @@ exports.onNewPlay = onDocumentCreated('games/{gameId}/plays/{playId}', async (ev
   if (!label) return // not a notable play type
 
   const playerId  = play.playerId
-  const clubId    = play.clubId
   const gameId    = event.params.gameId
 
   if (!playerId) return
@@ -425,19 +461,7 @@ exports.onNewPlay = onDocumentCreated('games/{gameId}/plays/{playId}', async (ev
     }
   }
 
-  // Find users who follow this player
-  const usersSnap = await db.collection('users')
-    .where('followedPlayers', 'array-contains-any',
-      // Firestore doesn't support direct object match in array-contains-any;
-      // we do a broader query and filter client-side
-      // Instead, store follower lists on player doc — use collectionGroup workaround:
-      // Fall back to scanning users (acceptable for MVP scale)
-      [{ playerId }]
-    )
-    .get()
-    .catch(() => null)
-
-  // Fallback: scan users whose followedPlayers contains an object with this playerId
+  // Find users who follow this player.
   // Since Firestore can't query nested array objects efficiently, we use a known pattern:
   // users store followedPlayers as array of objects. We query all users and filter client-side.
   // For scale, a separate followers/{playerId}/users subcollection would be better.
@@ -627,7 +651,6 @@ exports.onGameLive = onDocumentUpdated('games/{gameId}', async (event) => {
   const gameUrl  = `${APP_URL}/game/${gameId}`
   const home     = after.homeTeam || 'Home'
   const away     = after.awayTeam || 'Away'
-  const sport    = after.sport    || 'Game'
 
   try {
     const response = await admin.messaging().sendEachForMulticast({

@@ -26,7 +26,7 @@ export default function InvitePage() {
     setClaiming(true)
     setError('')
     try {
-      await claimInvite(token, user.uid)
+      await claimInvite(token)
       setClaimed(true)
       setTimeout(() => navigate(`/player/${invite.clubId}/${invite.playerId}`), 1500)
     } catch (err) {
