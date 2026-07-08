@@ -5,7 +5,7 @@ import { PageSpinner } from '../components/ui'
 import { getPlayer, getClub, getPlayerHistoricalPlays, subscribeToUser, followPlayer, unfollowPlayer, updatePlayer } from '../firebase/firestore'
 import { useLiveGamePlayers } from '../hooks/useLiveGamePlayers'
 import { uploadPlayerPhoto } from '../firebase/storage'
-import { formatDate, nickDisplay } from '../lib/formatters'
+import { nickDisplay } from '../lib/formatters'
 import {
   BB_HIT_TYPES, BB_AT_BAT_TYPES, BB_PLAY_TYPES, SPORT_POSITIONS,
 } from '../lib/baseballHelpers'

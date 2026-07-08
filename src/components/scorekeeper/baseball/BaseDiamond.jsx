@@ -23,7 +23,6 @@ export default function BaseDiamond({ bases = {}, compact = false, onBaseClick }
 
   const coords = { first, second, third }
   const runners = { first: f, second: s, third: t }
-  const labels  = { first: '1B', second: '2B', third: '3B' }
   const sides   = { first: 'right', second: 'right', third: 'left' }
 
   return (

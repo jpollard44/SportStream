@@ -10,7 +10,6 @@ import {
 } from '../firebase/firestore'
 import { subscribeToUserTournaments, deleteTournament } from '../firebase/tournaments'
 import { subscribeToUserLeagues, deleteLeague } from '../firebase/leagues'
-import { logout } from '../firebase/auth'
 import { formatDate } from '../lib/formatters'
 
 const SPORTS = ['basketball', 'baseball', 'softball', 'soccer', 'volleyball', 'flag-football']

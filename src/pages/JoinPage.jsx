@@ -25,7 +25,7 @@ export default function JoinPage() {
         return
       }
       navigate(`/scorekeeper/${game.id}`)
-    } catch (err) {
+    } catch {
       setError('Something went wrong. Try again.')
     } finally {
       setLoading(false)

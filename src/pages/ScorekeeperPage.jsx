@@ -17,7 +17,7 @@ import VoiceButton from '../components/scorekeeper/VoiceButton'
 
 // ── Voice announcement ────────────────────────────────────────────────────────
 
-function buildAnnouncement(type, playerName, teamName, sport) {
+function buildAnnouncement(type, playerName, teamName, _sport) {
   const p = playerName || teamName || 'Team'
   const t = teamName || 'Team'
   const map = {
@@ -386,7 +386,6 @@ export default function ScorekeeperPage() {
   const sc         = config.starterCount || 5
 
   const homeInLineup = new Set(homeLineup.map((e) => e.playerId))
-  const awayInLineup = new Set(awayLineup.map((e) => e.playerId))
   const homeBench    = players.filter((p) => !homeInLineup.has(p.id))
 
   const homeStarters = homeLineup.slice(0, sc)

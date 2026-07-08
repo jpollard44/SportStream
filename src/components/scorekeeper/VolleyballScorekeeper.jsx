@@ -42,7 +42,7 @@ function VolStatLabel({ stats }) {
   return <span className="flex-shrink-0 text-xs font-bold text-yellow-400">{parts.join(' · ')}</span>
 }
 
-export default function VolleyballScorekeeper({ game, gameId, plays, user, isOnline, queueLength, enqueue }) {
+export default function VolleyballScorekeeper({ game, gameId, plays, user, isOnline, queueLength }) {
   const [players, setPlayers]                   = useState([])
   const [rosterTab, setRosterTab]               = useState('home')
   const [selectedPlayer, setSelectedPlayer]     = useState(null) // { id, name, number }

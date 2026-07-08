@@ -43,5 +43,23 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), serviceWorkerEnvPlugin()],
+    build: {
+      rollupOptions: {
+        output: {
+          // Keep the big, rarely-changing SDKs in their own long-cacheable chunks
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-firebase': [
+              'firebase/app', 'firebase/auth', 'firebase/firestore',
+              'firebase/storage', 'firebase/messaging', 'firebase/functions',
+            ],
+          },
+        },
+      },
+    },
+    test: {
+      environment: 'node',
+      include: ['src/**/*.test.js'],
+    },
   }
 })
