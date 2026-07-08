@@ -30,9 +30,15 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
-    // Users: only readable/writable by the owner
+    // Users: only readable/writable by the owner.
+    // The plan field is managed exclusively by the payment webhook
+    // (Cloud Functions bypass these rules) — clients can never set it.
     match /users/{userId} {
-      allow read, write: if signedIn() && request.auth.uid == userId;
+      allow read, delete: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn() && request.auth.uid == userId
+        && (!('plan' in request.resource.data) || request.resource.data.plan == 'free');
+      allow update: if signedIn() && request.auth.uid == userId
+        && !changedKeys().hasAny(['plan']);
     }
 
     // Clubs: public read (team pages), admin write

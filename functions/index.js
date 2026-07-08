@@ -253,13 +253,26 @@ exports.chipInWebhook = onRequest(
       const { sessionId, netAmount, completedAt } = req.body
       const snap = await db.doc(`chipInSessions/${sessionId}`).get()
       if (snap.exists) {
-        const { col, parentId, teamId } = snap.data()
-        await db.doc(`${col}/${parentId}/teams/${teamId}`).update({
-          chipInStatus:      'completed',
-          fullyFunded:       true,
-          totalPaid:         netAmount,
-          chipInCompletedAt: completedAt,
-        })
+        const data = snap.data()
+
+        if (data.type === 'plan_upgrade') {
+          // Plan upgrades (SettingsPage): activate the plan from the
+          // server-stored lookup, never from the webhook payload
+          await db.doc(`users/${data.uid}`).set({
+            plan:            data.plan,
+            planUpdatedAt:   admin.firestore.FieldValue.serverTimestamp(),
+            planSessionId:   sessionId,
+          }, { merge: true })
+        } else {
+          // Team entry-fee pools (tournaments/leagues)
+          const { col, parentId, teamId } = data
+          await db.doc(`${col}/${parentId}/teams/${teamId}`).update({
+            chipInStatus:      'completed',
+            fullyFunded:       true,
+            totalPaid:         netAmount,
+            chipInCompletedAt: completedAt,
+          })
+        }
       }
     }
 
@@ -313,6 +326,16 @@ exports.createChipInSession = onRequest(
         return res.status(502).json({ error: 'Payment provider error' })
       }
       const session = await r.json()
+
+      // Webhook lookup: the plan is activated server-side by chipInWebhook
+      // when the session completes — never from the client.
+      await db.doc(`chipInSessions/${session.sessionId}`).set({
+        type: 'plan_upgrade',
+        uid,
+        plan,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      })
+
       return res.status(200).json({ url: session.checkoutUrl })
     } catch (e) {
       console.error('createChipInSession error:', e)

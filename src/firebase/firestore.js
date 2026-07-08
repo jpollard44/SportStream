@@ -417,10 +417,6 @@ export async function deletePlay(gameId, playId, scoreDelta) {
   }
 }
 
-export async function updateUserPlan(uid, plan) {
-  await updateDoc(doc(db, 'users', uid), { plan })
-}
-
 export async function getUser(uid) {
   const snap = await getDoc(doc(db, 'users', uid))
   return snap.exists() ? { id: snap.id, ...snap.data() } : null
