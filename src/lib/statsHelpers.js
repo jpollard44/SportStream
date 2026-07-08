@@ -32,7 +32,8 @@ export function mergeBasketballStats(perGameStats) {
   for (const stats of perGameStats) {
     for (const [id, s] of Object.entries(stats)) {
       if (!merged[id]) {
-        merged[id] = { ...s, gp: 0 }
+        // Zero the counters — each game's stats (including this one) are added below
+        merged[id] = { ...s, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, foul: 0, to: 0, gp: 0 }
       }
       merged[id].gp   += 1
       merged[id].pts  += s.pts
@@ -75,7 +76,8 @@ export function mergeBaseballStats(perGameStats) {
   for (const stats of perGameStats) {
     for (const [id, s] of Object.entries(stats)) {
       if (!merged[id]) {
-        merged[id] = { ...s, gp: 0 }
+        // Zero the counters — each game's stats (including this one) are added below
+        merged[id] = { ...s, ab: 0, h: 0, hr: 0, rbi: 0, bb: 0, k: 0, gp: 0 }
       }
       merged[id].gp  += 1
       merged[id].ab  += s.ab
@@ -93,7 +95,9 @@ export function mergeBaseballStats(perGameStats) {
 
 export function battingAvg(h, ab) {
   if (!ab) return '.000'
-  return '.' + Math.round((h / ab) * 1000).toString().padStart(3, '0')
+  const milli = Math.round((h / ab) * 1000)
+  if (milli >= 1000) return '1.000'
+  return '.' + milli.toString().padStart(3, '0')
 }
 
 export function isBaseballSport(sport) {

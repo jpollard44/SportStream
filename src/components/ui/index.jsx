@@ -1,7 +1,7 @@
 // SportStream UI Component Library
 // Import individual components: import { AppButton, AppCard, ... } from '../components/ui'
 
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 
 // ── AppButton ──────────────────────────────────────────────────────────────────
 export function AppButton({

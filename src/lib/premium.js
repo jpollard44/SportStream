@@ -17,7 +17,7 @@ export const NOTABLE_PLAY_TYPES = new Set([
   'goal', 'score',
 ])
 
-export function getNotablePlayLabel(type, sport) {
+export function getNotablePlayLabel(type, _sport) {
   const labels = {
     home_run:   '💥 Home Run!',
     triple:     '🏃 Triple!',

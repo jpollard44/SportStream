@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { subscribeToUser } from '../firebase/firestore'
@@ -236,7 +236,7 @@ function HighlightCard({ highlight, uid, onSignInRequired }) {
 // ── Top 10 Strip ───────────────────────────────────────────────────────────────
 
 function WeeklyTop10Strip({ uid, onSignInRequired }) {
-  const [weekData, setWeekData] = useState(null)
+  const [, setWeekData] = useState(null)
   const [highlights, setHighlights] = useState([])
   const [expanded, setExpanded] = useState(null)
   const [loading, setLoading] = useState(true)

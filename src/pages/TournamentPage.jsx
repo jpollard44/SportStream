@@ -1038,7 +1038,7 @@ function EditTournamentModal({ tourId, tournament, onClose }) {
 
 // ── Tournament Auto-Schedule Modal ────────────────────────────────────────────
 
-function TournamentAutoScheduleModal({ tourId, tournament, teams, user, onClose, onGameCreated }) {
+function TournamentAutoScheduleModal({ tourId, tournament, user, onClose, onGameCreated }) {
   const isRR   = tournament.format === 'round_robin'
   const sport  = tournament.sport || 'basketball'
   const isBB   = sport === 'baseball' || sport === 'softball'

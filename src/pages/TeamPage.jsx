@@ -172,7 +172,7 @@ export default function TeamPage() {
       .finally(() => setLoadingStats(false))
   }, [activeTab, club, games, seasonStats, loadingStats])
 
-  const { livePlayerIds, liveGameId: liveGameIdForRoster } = useLiveGamePlayers(clubId)
+  const { livePlayerIds } = useLiveGamePlayers(clubId)
 
   const isFollowing  = userDoc?.followedClubs?.includes(clubId) ?? false
   const liveGame     = games.find((g) => g.status === 'live')
@@ -560,7 +560,7 @@ export default function TeamPage() {
 
 // ── Season Stats Panel ────────────────────────────────────────────────────────
 
-function SeasonStatsPanel({ club, clubId, games, isBaseball, seasonStats, loadingStats }) {
+function SeasonStatsPanel({ clubId, games, isBaseball, seasonStats, loadingStats }) {
   const finalCount = games.filter((g) => g.status === 'final').length
 
   if (!finalCount) {

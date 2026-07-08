@@ -2,32 +2,47 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isClubAdmin(clubId) {
+      return request.auth != null
+        && request.auth.uid in firestore.get(/databases/(default)/documents/clubs/$(clubId)).data.adminIds;
+    }
+
     // Public read for all uploaded media
     match /{allPaths=**} {
       allow read: if true;
     }
 
-    // Club logos — any authenticated user
+    // Club logos — admins of that club only
     match /clubs/{clubId}/logo {
-      allow write: if request.auth != null
+      allow write: if isClubAdmin(clubId)
+        && isImage()
         && request.resource.size < 5 * 1024 * 1024;
     }
 
-    // Player photos
+    // Player photos — admins of that club only
     match /clubs/{clubId}/players/{playerId} {
-      allow write: if request.auth != null
+      allow write: if isClubAdmin(clubId)
+        && isImage()
         && request.resource.size < 5 * 1024 * 1024;
     }
 
-    // Tournament cover photos
+    // Tournament cover photos — tournament host only
     match /tournaments/{tourId}/cover {
       allow write: if request.auth != null
+        && request.auth.uid == firestore.get(/databases/(default)/documents/tournaments/$(tourId)).data.hostId
+        && isImage()
         && request.resource.size < 10 * 1024 * 1024;
     }
 
-    // League cover photos
+    // League cover photos — league host only
     match /leagues/{leagueId}/cover {
       allow write: if request.auth != null
+        && request.auth.uid == firestore.get(/databases/(default)/documents/leagues/$(leagueId)).data.hostId
+        && isImage()
         && request.resource.size < 10 * 1024 * 1024;
     }
   }

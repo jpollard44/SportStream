@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getUser } from '../firebase/firestore'
-import { formatDate } from '../lib/formatters'
 
 const SPORT_EMOJI = {
   basketball: '🏀', baseball: '⚾', softball: '🥎',

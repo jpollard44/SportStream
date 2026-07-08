@@ -216,6 +216,16 @@ npm run dev
 
 App runs at `http://localhost:5173`.
 
+### Tests & lint
+
+```bash
+npm test          # unit tests (Vitest)
+npm run test:watch
+npm run lint      # ESLint
+```
+
+Both run in CI (`.github/workflows/ci.yml`) on every push and pull request.
+
 ---
 
 ## Deployment

@@ -18,7 +18,7 @@ const GAME_TYPES = ['regular', 'playoff', 'scrimmage']
 export default function ClubPage() {
   const { clubId } = useParams()
   const { club, players, loading } = useClub(clubId)
-  const { livePlayerIds, liveGameId } = useLiveGamePlayers(clubId)
+  const { livePlayerIds } = useLiveGamePlayers(clubId)
   const [games, setGames] = useState([])
   const [schedule, setSchedule] = useState([])
 

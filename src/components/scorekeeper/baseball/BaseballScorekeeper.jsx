@@ -499,7 +499,6 @@ export default function BaseballScorekeeper({ game, gameId, plays, user, isOnlin
                   const label = BB_PLAY_LABELS[play.type] || play.type
                   const isHit = BB_HIT_TYPES.has(play.type)
                   const isOut = BB_OUT_TYPES.has(play.type)
-                  const color = isHit ? 'text-blue-300' : isOut ? 'text-red-400' : 'text-gray-400'
                   return (
                     <div key={play.id || i} className="flex items-center gap-2">
                       <span className={`w-7 rounded text-center text-[10px] font-bold ${
@@ -533,7 +532,7 @@ export default function BaseballScorekeeper({ game, gameId, plays, user, isOnlin
               <VoiceButton
                 players={players}
                 sport={game.sport}
-                onConfirm={(type, player) => handleAction(type)}
+                onConfirm={(type) => handleAction(type)}
               />
               <Link to={`/game/${gameId}`} target="_blank"
                 className="rounded-xl bg-gray-800 px-3 py-2 text-sm text-gray-400 hover:text-white">
@@ -645,7 +644,7 @@ export default function BaseballScorekeeper({ game, gameId, plays, user, isOnlin
             {bench.length === 0 && (
               <p className="py-8 text-center text-sm text-gray-500">All rostered players are already in the lineup</p>
             )}
-            {[...bench, ...players.filter((p) => inLineup.has(p.id) && p.id !== battingLineup[subPickerFor]?.playerId)].map((player, i, arr) => {
+            {[...bench, ...players.filter((p) => inLineup.has(p.id) && p.id !== battingLineup[subPickerFor]?.playerId)].map((player, i) => {
               const isBench = !inLineup.has(player.id) || player.id === battingLineup[subPickerFor]?.playerId
               return (
                 <div key={player.id}>

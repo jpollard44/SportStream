@@ -18,6 +18,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from 'firebase/firestore'
+import { getFunctions, httpsCallable } from 'firebase/functions'
 import { db } from './config'
 
 // ─── Clubs ───────────────────────────────────────────────────────────────────
@@ -589,13 +590,18 @@ export async function getInvite(token) {
   return snap.exists() ? { token, ...snap.data() } : null
 }
 
-export async function claimInvite(token, uid) {
-  const invite = await getInvite(token)
-  if (!invite) throw new Error('Invite not found')
-  if (invite.claimed) throw new Error('Invite already claimed')
-  await updateDoc(doc(db, 'clubs', invite.clubId, 'players', invite.playerId), { uid })
-  await updateDoc(doc(db, 'invites', token), { claimed: true, claimedBy: uid, claimedAt: serverTimestamp() })
-  return invite
+// Claiming runs through a Cloud Function: player docs are admin-write-only and
+// invite docs are immutable to clients under the security rules.
+export async function claimInvite(token) {
+  const fn = httpsCallable(getFunctions(), 'claimInvite')
+  try {
+    const result = await fn({ token })
+    return result.data
+  } catch (e) {
+    if (e.code === 'functions/not-found') throw new Error('Invite not found', { cause: e })
+    if (e.code === 'functions/failed-precondition') throw new Error('Invite already claimed', { cause: e })
+    throw new Error('Could not claim invite. Please try again.', { cause: e })
+  }
 }
 
 // ─── Views counter ────────────────────────────────────────────────────────────
