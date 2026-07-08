@@ -1,32 +1,43 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import { useNotifications } from './hooks/useNotifications'
+// Eager: the entry pages users hit first
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import ClubPage from './pages/ClubPage'
-import GameSetupPage from './pages/GameSetupPage'
-import ScorekeeperPage from './pages/ScorekeeperPage'
-import PublicGamePage from './pages/PublicGamePage'
-import JoinPage from './pages/JoinPage'
-import FindPage from './pages/FindPage'
-import SettingsPage from './pages/SettingsPage'
-import TournamentsPage from './pages/TournamentsPage'
-import CreateTournamentPage from './pages/CreateTournamentPage'
-import TournamentPage from './pages/TournamentPage'
-import TournamentJoinPage from './pages/TournamentJoinPage'
-import TeamPage from './pages/TeamPage'
-import PlayerPage from './pages/PlayerPage'
-import InvitePage from './pages/InvitePage'
-import LeaguesPage from './pages/LeaguesPage'
-import CreateLeaguePage from './pages/CreateLeaguePage'
-import LeaguePage from './pages/LeaguePage'
-import LeagueJoinPage from './pages/LeagueJoinPage'
-import FanProfilePage from './pages/FanProfilePage'
-import WallOfFamePage from './pages/WallOfFamePage'
-import RolePickerPage from './pages/RolePickerPage'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import BottomNav from './components/layout/BottomNav'
+// Lazy: everything else loads per-route so a shared game link doesn't
+// download the scorekeeper, tournament builder, settings, etc.
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const ClubPage = lazy(() => import('./pages/ClubPage'))
+const GameSetupPage = lazy(() => import('./pages/GameSetupPage'))
+const ScorekeeperPage = lazy(() => import('./pages/ScorekeeperPage'))
+const PublicGamePage = lazy(() => import('./pages/PublicGamePage'))
+const JoinPage = lazy(() => import('./pages/JoinPage'))
+const FindPage = lazy(() => import('./pages/FindPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const TournamentsPage = lazy(() => import('./pages/TournamentsPage'))
+const CreateTournamentPage = lazy(() => import('./pages/CreateTournamentPage'))
+const TournamentPage = lazy(() => import('./pages/TournamentPage'))
+const TournamentJoinPage = lazy(() => import('./pages/TournamentJoinPage'))
+const TeamPage = lazy(() => import('./pages/TeamPage'))
+const PlayerPage = lazy(() => import('./pages/PlayerPage'))
+const InvitePage = lazy(() => import('./pages/InvitePage'))
+const LeaguesPage = lazy(() => import('./pages/LeaguesPage'))
+const CreateLeaguePage = lazy(() => import('./pages/CreateLeaguePage'))
+const LeaguePage = lazy(() => import('./pages/LeaguePage'))
+const LeagueJoinPage = lazy(() => import('./pages/LeagueJoinPage'))
+const FanProfilePage = lazy(() => import('./pages/FanProfilePage'))
+const WallOfFamePage = lazy(() => import('./pages/WallOfFamePage'))
+const RolePickerPage = lazy(() => import('./pages/RolePickerPage'))
+
+function RouteFallback() {
+  return (
+    <div className="flex h-screen items-center justify-center bg-gray-950">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+    </div>
+  )
+}
 
 function InstallPromptBanner() {
   const [prompt, setPrompt] = useState(null)
@@ -117,6 +128,7 @@ export default function App() {
       {/* Mobile bottom nav (role-aware, hides on scorekeeper/game pages) */}
       <BottomNav />
 
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -151,6 +163,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </>
   )
 }
