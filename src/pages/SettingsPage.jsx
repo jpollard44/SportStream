@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { usePlan, PLANS } from '../hooks/usePlan'
@@ -96,6 +97,7 @@ function VoiceAnnouncePref() {
 }
 
 export default function SettingsPage() {
+  useDocumentTitle('Settings')
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const { plan: currentPlan, loading } = usePlan(user?.uid)

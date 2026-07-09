@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { PageSpinner } from '../components/ui'
@@ -225,6 +226,7 @@ export default function PlayerPage() {
 
   const [player, setPlayer]   = useState(null)
   const [club, setClub]       = useState(null)
+  useDocumentTitle(player ? (club ? `${player.name} · ${club.name}` : player.name) : null)
   const [plays, setPlays]     = useState([])
   const [userDoc, setUserDoc] = useState(null)
   const [loading, setLoading] = useState(true)

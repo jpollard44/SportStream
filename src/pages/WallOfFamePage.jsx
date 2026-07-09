@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { subscribeToUser } from '../firebase/firestore'
@@ -296,6 +297,7 @@ function WeeklyTop10Strip({ uid, onSignInRequired }) {
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function WallOfFamePage() {
+  useDocumentTitle('Wall of Fame')
   const { user } = useAuth()
   const [tab, setTab] = useState('discover')
   const [userDoc, setUserDoc] = useState(null)

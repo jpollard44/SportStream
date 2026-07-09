@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { Link, useNavigate } from 'react-router-dom'
 import { subscribeToPublicLeagues, getLeagueByJoinCode } from '../firebase/leagues'
 import { useAuth } from '../context/AuthContext'
@@ -22,6 +23,7 @@ const FILTERS = [
 ]
 
 export default function LeaguesPage() {
+  useDocumentTitle('Leagues')
   const { user } = useAuth()
   const navigate = useNavigate()
   const [leagues, setLeagues] = useState([])

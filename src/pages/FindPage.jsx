@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { Link, useNavigate } from 'react-router-dom'
 import { getGameByJoinCode } from '../firebase/firestore'
 import { getTournamentByJoinCode } from '../firebase/tournaments'
@@ -16,6 +17,7 @@ const TYPE_STYLE = {
 }
 
 export default function FindPage() {
+  useDocumentTitle('Find a game')
   const navigate = useNavigate()
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
