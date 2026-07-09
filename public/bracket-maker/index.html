@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Free Tournament Bracket Maker — Single &amp; Double Elimination | SportStream</title>
+<meta name="description" content="Create and run tournament brackets free. Auto-seeded single elimination, double elimination and round robin with live scores, standings and an auto-scheduler for courts and fields.">
+<link rel="canonical" href="https://sportstream-91d22.web.app/bracket-maker">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Free Tournament Bracket Maker — Single &amp; Double Elimination | SportStream">
+<meta property="og:description" content="Create and run tournament brackets free. Auto-seeded single elimination, double elimination and round robin with live scores, standings and an auto-scheduler for courts and fields.">
+<meta property="og:image" content="https://sportstream-91d22.web.app/og-image.png">
+<meta property="og:url" content="https://sportstream-91d22.web.app/bracket-maker">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free Tournament Bracket Maker — Single &amp; Double Elimination | SportStream">
+<meta name="twitter:description" content="Create and run tournament brackets free. Auto-seeded single elimination, double elimination and round robin with live scores, standings and an auto-scheduler for courts and fields.">
+<meta name="twitter:image" content="https://sportstream-91d22.web.app/og-image.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"SportStream","applicationCategory":"SportsApplication","operatingSystem":"Web, iOS, Android (PWA)","description":"Create and run tournament brackets free. Auto-seeded single elimination, double elimination and round robin with live scores, standings and an auto-scheduler for courts and fields.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://sportstream-91d22.web.app/bracket-maker"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is the bracket maker free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Building brackets, scheduling and live scoring are free. Optional paid features add exports and streaming extras."}},{"@type":"Question","name":"What bracket formats are supported?","acceptedAnswer":{"@type":"Answer","text":"Single elimination, double elimination (with a losers bracket and grand final), and round robin with standings."}},{"@type":"Question","name":"Can teams register themselves?","acceptedAnswer":{"@type":"Answer","text":"Yes — share a 6-character join code or a registration link and teams sign up on their own."}},{"@type":"Question","name":"Can I schedule multiple courts or fields?","acceptedAnswer":{"@type":"Answer","text":"Yes. The auto-scheduler places games across the number of courts or fields you set, with start times and rest between rounds."}}]}</script>
+<style>
+  :root{--bg:#0f1117;--card:#1a1f2e;--line:rgba(255,255,255,.08);--blue:#2563eb;--blue2:#60a5fa;--muted:#94a3b8;--muted2:#64748b}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:#fff;font-family:Inter,system-ui,-apple-system,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--blue2);text-decoration:none}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header{position:sticky;top:0;z-index:10;background:rgba(15,17,23,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  header .wrap{display:flex;align-items:center;gap:20px;height:60px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;color:#fff}
+  .logo .mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(145deg,#2563eb,#1e3a8a);display:flex;align-items:center;justify-content:center;font-size:17px}
+  nav{margin-left:auto;display:flex;gap:18px;font-size:14px;font-weight:600}
+  nav a{color:var(--muted)}nav a[aria-current]{color:#fff}
+  .cta{background:var(--blue);color:#fff!important;padding:9px 18px;border-radius:10px;font-weight:700;font-size:14px}
+  .hero{padding:72px 0 56px;text-align:center}
+  .hero .badge{display:inline-block;background:rgba(37,99,235,.15);border:1px solid rgba(37,99,235,.35);color:var(--blue2);font-size:13px;font-weight:700;padding:6px 14px;border-radius:999px;margin-bottom:22px}
+  h1{font-size:clamp(34px,6vw,58px);font-weight:800;letter-spacing:-.03em;line-height:1.05;max-width:760px;margin:0 auto}
+  h1 .accent{color:var(--blue2)}
+  .lede{font-size:clamp(17px,2.4vw,21px);color:var(--muted);max-width:620px;margin:20px auto 0}
+  .btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:32px}
+  .btn{padding:14px 28px;border-radius:12px;font-weight:700;font-size:16px}
+  .btn.primary{background:var(--blue);color:#fff}
+  .btn.ghost{background:var(--card);color:#fff;border:1px solid var(--line)}
+  section{padding:44px 0;border-top:1px solid var(--line)}
+  h2{font-size:clamp(26px,4vw,36px);font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+  .sub{color:var(--muted);margin-bottom:28px;max-width:640px}
+  ul.features{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  ul.features li{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}
+  ul.features h3{font-size:17px;margin-bottom:6px}
+  ul.features p{color:var(--muted);font-size:15px}
+  ol.steps{list-style:none;display:grid;gap:14px;counter-reset:s}
+  ol.steps li{display:flex;gap:16px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  ol.steps .n{flex:0 0 auto;width:30px;height:30px;border-radius:999px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px}
+  ol.steps p{padding-top:3px}
+  .sports{display:flex;flex-wrap:wrap;gap:10px}
+  .sports span{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:14px;font-weight:600;color:#e2e8f0}
+  .faq{padding:18px 0;border-bottom:1px solid var(--line)}
+  .faq h3{font-size:17px;margin-bottom:6px}
+  .faq p{color:var(--muted);font-size:15px}
+  .final{text-align:center;padding:64px 0}
+  .related{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-top:16px;font-weight:600}
+  footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted2);font-size:13px;text-align:center}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="logo" href="/"><span class="mark">S</span>SportStream</a>
+  <nav><a href="/scorekeeper-app">Scorekeeper</a><a href="/bracket-maker" aria-current="page">Bracket maker</a><a href="/league-manager">League manager</a><a class="cta" href="/login">Start free</a></nav>
+</div></header>
+
+<main class="wrap">
+  <div class="hero">
+    <span class="badge">Free bracket maker</span>
+    <h1>The free <span class="accent">tournament bracket maker</span> that runs the whole event</h1>
+    <p class="lede">Generate single-elimination, double-elimination or round-robin brackets, auto-seed teams, schedule every court, and update the bracket live as scores come in.</p>
+    <div class="btns">
+      <a class="btn primary" href="/login">Get started — it's free</a>
+      <a class="btn ghost" href="/find">See a live demo</a>
+    </div>
+  </div>
+
+  <section>
+    <h2>From registration to trophy</h2>
+    <p class="sub">Everything a tournament director needs in one link.</p>
+    <ul class="features"><li><h3>Single &amp; double elimination</h3><p>Auto-generate a clean bracket with byes handled correctly, plus round robin for pool play.</p></li><li><h3>Auto-seeding</h3><p>Seed by rank and the bracket pairs teams automatically — or drag to set your own matchups.</p></li><li><h3>Smart scheduler</h3><p>Assign games across multiple courts or fields with start times, respecting rest between rounds.</p></li><li><h3>Live bracket updates</h3><p>Winners advance automatically as games go final. Everyone sees the current bracket in real time.</p></li><li><h3>Open team registration</h3><p>Share a join code or link and let teams register themselves — no data entry for you.</p></li><li><h3>Entry fees</h3><p>Optionally collect entry fees online when teams sign up.</p></li></ul>
+  </section>
+
+  <section>
+    <h2>How it works</h2>
+    <p class="sub">Up and running in minutes — no installs, no spreadsheets.</p>
+    <ol class="steps"><li><span class="n">1</span><p>Create a tournament and choose your format and sport.</p></li><li><span class="n">2</span><p>Let teams register with a join code, or add them yourself and set seeds.</p></li><li><span class="n">3</span><p>Generate the bracket and auto-schedule games across your courts.</p></li><li><span class="n">4</span><p>Scores update the bracket live — fans follow every round from one link.</p></li></ol>
+  </section>
+
+  <section>
+    <h2>Every sport your community plays</h2>
+    <p class="sub">One app for the whole season, across sports.</p>
+    <div class="sports"><span>Basketball</span><span>Baseball</span><span>Softball</span><span>Soccer</span><span>Volleyball</span><span>Flag Football</span></div>
+  </section>
+
+  <section>
+    <h2>Frequently asked questions</h2>
+    <div class="faq"><h3>Is the bracket maker free?</h3><p>Yes. Building brackets, scheduling and live scoring are free. Optional paid features add exports and streaming extras.</p></div><div class="faq"><h3>What bracket formats are supported?</h3><p>Single elimination, double elimination (with a losers bracket and grand final), and round robin with standings.</p></div><div class="faq"><h3>Can teams register themselves?</h3><p>Yes — share a 6-character join code or a registration link and teams sign up on their own.</p></div><div class="faq"><h3>Can I schedule multiple courts or fields?</h3><p>Yes. The auto-scheduler places games across the number of courts or fields you set, with start times and rest between rounds.</p></div>
+  </section>
+
+  <div class="final">
+    <h2>Run your next tournament the easy way</h2>
+    <p class="sub" style="margin:12px auto 24px">Build the bracket, schedule the games, and keep every team and fan in the loop.</p>
+    <a class="btn primary" href="/login">Create your free account</a>
+    <div class="related"><a href="/scorekeeper-app">Scorekeeper →</a><a href="/league-manager">League manager →</a></div>
+  </div>
+</main>
+
+<footer><div class="wrap">
+  &copy; SportStream — live scores, stats &amp; streaming for every team.
+  &nbsp;·&nbsp; <a href="/">Home</a> &nbsp;·&nbsp; <a href="/find">Find a game</a> &nbsp;·&nbsp; <a href="/tournaments">Tournaments</a> &nbsp;·&nbsp; <a href="/leagues">Leagues</a>
+</div></footer>
+</body>
+</html>

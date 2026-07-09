@@ -26,6 +26,8 @@ const TWILIO_FROM_PHONE        = defineSecret('TWILIO_FROM_PHONE')
 const CHIPINPOOL_BASE = 'https://www.chipinpool.com/api/v1'
 const APP_URL         = 'https://sportstream-91d22.web.app'
 
+const { buildGameMeta, buildTeamMeta, injectMeta } = require('./lib/meta')
+
 // ── createTournamentPool ──────────────────────────────────────────────────────
 // Called from the frontend (via callable) after a team is registered.
 // 1. Creates ONE ChipInPool checkout session for the total entry fee.
@@ -786,5 +788,62 @@ exports.compileWeeklyTop10 = onSchedule('every monday 00:01', async () => {
     console.log(`compileWeeklyTop10: wrote ${sorted.length} highlights for ${weekKey}`)
   } catch (e) {
     console.error('compileWeeklyTop10 error:', e)
+  }
+})
+
+// ── renderMeta — server-rendered OG/SEO meta for shared /game and /team links ──
+// Hosting rewrites /game/** and /team/** here. We fetch the built SPA shell and
+// inject entity-specific <title> + og/twitter tags so link unfurls (iMessage,
+// Slack, Facebook) and crawlers see the live score / team, then the SPA hydrates
+// normally for real users. Fails open: any error serves the untouched shell.
+let _shellCache = { html: null, at: 0 }
+const SHELL_TTL_MS = 5 * 60 * 1000
+
+async function loadShell() {
+  const now = Date.now()
+  if (_shellCache.html && now - _shellCache.at < SHELL_TTL_MS) return _shellCache.html
+  // /index.html is NOT rewritten to this function, so this returns the static
+  // SPA shell (no request loop).
+  const res = await fetch(`${APP_URL}/index.html`, { headers: { 'user-agent': 'SportStream-renderMeta' } })
+  if (!res.ok) throw new Error(`shell fetch ${res.status}`)
+  const html = await res.text()
+  _shellCache = { html, at: now }
+  return html
+}
+
+exports.renderMeta = onRequest({ invoker: 'public' }, async (req, res) => {
+  let shell
+  try {
+    shell = await loadShell()
+  } catch (e) {
+    // Catastrophic (hosting unreachable): 302 to the SPA entry so the user still
+    // gets the app. /index.html isn't rewritten here, so no loop.
+    console.error('renderMeta: shell load failed', e)
+    res.set('Cache-Control', 'no-store')
+    res.redirect(302, '/index.html')
+    return
+  }
+
+  try {
+    const path = decodeURIComponent((req.path || '').split('?')[0])
+    let meta = null
+
+    let m
+    if ((m = path.match(/^\/game\/([^/]+)/))) {
+      const snap = await db.collection('games').doc(m[1]).get()
+      if (snap.exists) meta = buildGameMeta(snap.data(), m[1])
+    } else if ((m = path.match(/^\/team\/([^/]+)/))) {
+      const snap = await db.collection('clubs').doc(m[1]).get()
+      if (snap.exists) meta = buildTeamMeta(snap.data(), m[1])
+    }
+
+    const html = meta ? injectMeta(shell, meta) : shell
+    // CDN-cache so a viral link doesn't invoke the function on every view.
+    res.set('Cache-Control', 'public, max-age=300, s-maxage=600')
+    res.status(200).send(html)
+  } catch (e) {
+    console.error('renderMeta: render failed', e)
+    res.set('Cache-Control', 'no-store')
+    res.status(200).send(shell) // fail open with the plain shell
   }
 })

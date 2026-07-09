@@ -14,6 +14,8 @@
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
+      { "source": "/game/**", "function": "renderMeta" },
+      { "source": "/team/**", "function": "renderMeta" },
       { "source": "**", "destination": "/index.html" }
     ]
   }

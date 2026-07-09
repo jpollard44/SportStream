@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Free League Management Software — Schedules, Standings &amp; Stats | SportStream</title>
+<meta name="description" content="Run your recreational or youth sports league online for free. Auto-generate round-robin schedules, track live standings, manage rosters and share real-time scores with families.">
+<link rel="canonical" href="https://sportstream-91d22.web.app/league-manager">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Free League Management Software — Schedules, Standings &amp; Stats | SportStream">
+<meta property="og:description" content="Run your recreational or youth sports league online for free. Auto-generate round-robin schedules, track live standings, manage rosters and share real-time scores with families.">
+<meta property="og:image" content="https://sportstream-91d22.web.app/og-image.png">
+<meta property="og:url" content="https://sportstream-91d22.web.app/league-manager">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free League Management Software — Schedules, Standings &amp; Stats | SportStream">
+<meta name="twitter:description" content="Run your recreational or youth sports league online for free. Auto-generate round-robin schedules, track live standings, manage rosters and share real-time scores with families.">
+<meta name="twitter:image" content="https://sportstream-91d22.web.app/og-image.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"SportStream","applicationCategory":"SportsApplication","operatingSystem":"Web, iOS, Android (PWA)","description":"Run your recreational or youth sports league online for free. Auto-generate round-robin schedules, track live standings, manage rosters and share real-time scores with families.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://sportstream-91d22.web.app/league-manager"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How much does it cost to run a league?","acceptedAnswer":{"@type":"Answer","text":"Creating and running a league is free, including scheduling, standings and live scores."}},{"@type":"Question","name":"Do standings update automatically?","acceptedAnswer":{"@type":"Answer","text":"Yes. As each game is marked final, standings recompute — wins, losses, ties and point differential."}},{"@type":"Question","name":"Can I collect registration fees?","acceptedAnswer":{"@type":"Answer","text":"Yes, you can optionally collect entry or registration fees online when teams sign up."}},{"@type":"Question","name":"Can families follow games without an account?","acceptedAnswer":{"@type":"Answer","text":"Yes. Anyone with the link can watch live scores and view team pages; no account required."}}]}</script>
+<style>
+  :root{--bg:#0f1117;--card:#1a1f2e;--line:rgba(255,255,255,.08);--blue:#2563eb;--blue2:#60a5fa;--muted:#94a3b8;--muted2:#64748b}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:#fff;font-family:Inter,system-ui,-apple-system,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--blue2);text-decoration:none}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header{position:sticky;top:0;z-index:10;background:rgba(15,17,23,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  header .wrap{display:flex;align-items:center;gap:20px;height:60px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;color:#fff}
+  .logo .mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(145deg,#2563eb,#1e3a8a);display:flex;align-items:center;justify-content:center;font-size:17px}
+  nav{margin-left:auto;display:flex;gap:18px;font-size:14px;font-weight:600}
+  nav a{color:var(--muted)}nav a[aria-current]{color:#fff}
+  .cta{background:var(--blue);color:#fff!important;padding:9px 18px;border-radius:10px;font-weight:700;font-size:14px}
+  .hero{padding:72px 0 56px;text-align:center}
+  .hero .badge{display:inline-block;background:rgba(37,99,235,.15);border:1px solid rgba(37,99,235,.35);color:var(--blue2);font-size:13px;font-weight:700;padding:6px 14px;border-radius:999px;margin-bottom:22px}
+  h1{font-size:clamp(34px,6vw,58px);font-weight:800;letter-spacing:-.03em;line-height:1.05;max-width:760px;margin:0 auto}
+  h1 .accent{color:var(--blue2)}
+  .lede{font-size:clamp(17px,2.4vw,21px);color:var(--muted);max-width:620px;margin:20px auto 0}
+  .btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:32px}
+  .btn{padding:14px 28px;border-radius:12px;font-weight:700;font-size:16px}
+  .btn.primary{background:var(--blue);color:#fff}
+  .btn.ghost{background:var(--card);color:#fff;border:1px solid var(--line)}
+  section{padding:44px 0;border-top:1px solid var(--line)}
+  h2{font-size:clamp(26px,4vw,36px);font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+  .sub{color:var(--muted);margin-bottom:28px;max-width:640px}
+  ul.features{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  ul.features li{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}
+  ul.features h3{font-size:17px;margin-bottom:6px}
+  ul.features p{color:var(--muted);font-size:15px}
+  ol.steps{list-style:none;display:grid;gap:14px;counter-reset:s}
+  ol.steps li{display:flex;gap:16px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  ol.steps .n{flex:0 0 auto;width:30px;height:30px;border-radius:999px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px}
+  ol.steps p{padding-top:3px}
+  .sports{display:flex;flex-wrap:wrap;gap:10px}
+  .sports span{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:14px;font-weight:600;color:#e2e8f0}
+  .faq{padding:18px 0;border-bottom:1px solid var(--line)}
+  .faq h3{font-size:17px;margin-bottom:6px}
+  .faq p{color:var(--muted);font-size:15px}
+  .final{text-align:center;padding:64px 0}
+  .related{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-top:16px;font-weight:600}
+  footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted2);font-size:13px;text-align:center}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="logo" href="/"><span class="mark">S</span>SportStream</a>
+  <nav><a href="/scorekeeper-app">Scorekeeper</a><a href="/bracket-maker">Bracket maker</a><a href="/league-manager" aria-current="page">League manager</a><a class="cta" href="/login">Start free</a></nav>
+</div></header>
+
+<main class="wrap">
+  <div class="hero">
+    <span class="badge">Free league management</span>
+    <h1>Run your rec league online — <span class="accent">schedules, standings & stats</span></h1>
+    <p class="lede">Auto-build the season schedule, keep standings up to date as games finish, manage team rosters, and give every family a live link to follow along.</p>
+    <div class="btns">
+      <a class="btn primary" href="/login">Get started — it's free</a>
+      <a class="btn ghost" href="/find">See a live demo</a>
+    </div>
+  </div>
+
+  <section>
+    <h2>Your whole league in one place</h2>
+    <p class="sub">Built for parks &amp; rec coordinators, club directors and league organizers.</p>
+    <ul class="features"><li><h3>Auto round-robin scheduling</h3><p>Generate a balanced season schedule in seconds and adjust with drag-and-drop.</p></li><li><h3>Live standings</h3><p>Wins, losses, ties and point differential update automatically as games go final.</p></li><li><h3>Team registration</h3><p>Teams sign up with a join code — you approve them and the roster fills itself.</p></li><li><h3>Live scores for families</h3><p>Every game has a public scoreboard, so parents follow from work or the road.</p></li><li><h3>Season stats &amp; team pages</h3><p>Each team gets a public page with record, schedule, results and player stats.</p></li><li><h3>Push notifications</h3><p>Followers are notified when games go live and when their team plays.</p></li></ul>
+  </section>
+
+  <section>
+    <h2>How it works</h2>
+    <p class="sub">Up and running in minutes — no installs, no spreadsheets.</p>
+    <ol class="steps"><li><span class="n">1</span><p>Create your league and set the season and sport.</p></li><li><span class="n">2</span><p>Invite teams to register with a join code and approve them.</p></li><li><span class="n">3</span><p>Auto-generate the schedule and start the season.</p></li><li><span class="n">4</span><p>Standings and stats update live as scores come in — share one link with everyone.</p></li></ol>
+  </section>
+
+  <section>
+    <h2>Every sport your community plays</h2>
+    <p class="sub">One app for the whole season, across sports.</p>
+    <div class="sports"><span>Basketball</span><span>Baseball</span><span>Softball</span><span>Soccer</span><span>Volleyball</span><span>Flag Football</span></div>
+  </section>
+
+  <section>
+    <h2>Frequently asked questions</h2>
+    <div class="faq"><h3>How much does it cost to run a league?</h3><p>Creating and running a league is free, including scheduling, standings and live scores.</p></div><div class="faq"><h3>Do standings update automatically?</h3><p>Yes. As each game is marked final, standings recompute — wins, losses, ties and point differential.</p></div><div class="faq"><h3>Can I collect registration fees?</h3><p>Yes, you can optionally collect entry or registration fees online when teams sign up.</p></div><div class="faq"><h3>Can families follow games without an account?</h3><p>Yes. Anyone with the link can watch live scores and view team pages; no account required.</p></div>
+  </section>
+
+  <div class="final">
+    <h2>Give your league a modern home</h2>
+    <p class="sub" style="margin:12px auto 24px">Schedules, standings, rosters and live scores — free, and all in one link.</p>
+    <a class="btn primary" href="/login">Create your free account</a>
+    <div class="related"><a href="/scorekeeper-app">Scorekeeper →</a><a href="/bracket-maker">Bracket maker →</a></div>
+  </div>
+</main>
+
+<footer><div class="wrap">
+  &copy; SportStream — live scores, stats &amp; streaming for every team.
+  &nbsp;·&nbsp; <a href="/">Home</a> &nbsp;·&nbsp; <a href="/find">Find a game</a> &nbsp;·&nbsp; <a href="/tournaments">Tournaments</a> &nbsp;·&nbsp; <a href="/leagues">Leagues</a>
+</div></footer>
+</body>
+</html>
