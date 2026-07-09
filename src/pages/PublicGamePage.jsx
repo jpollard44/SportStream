@@ -12,6 +12,7 @@ import {
   incrementGameViews, followClub, unfollowClub,
 } from '../firebase/firestore'
 import { NOTABLE_PLAY_TYPES, getNotablePlayLabel } from '../lib/premium'
+import { shareContent, gameSharePayload } from '../lib/share'
 import { useAuth } from '../context/AuthContext'
 import StreamViewer from '../components/public/StreamViewer'
 import BaseDiamond from '../components/scorekeeper/baseball/BaseDiamond'
@@ -110,31 +111,37 @@ function isBaseballGame(game) {
   return game.sport === 'baseball' || game.sport === 'softball'
 }
 
-function ShareButton({ url, joinCode, label = 'Share' }) {
-  const [copied, setCopied] = useState(false)
+function ShareButton({ payload, label = 'Share', styleAs = 'link' }) {
+  const [status, setStatus] = useState(null) // 'shared' | 'copied' | 'failed'
 
   async function handleShare() {
-    const shareUrl = url || window.location.href
-    const text = joinCode ? `Watch live — join code: ${joinCode}` : 'Watch live on SportStream'
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'SportStream Game', text, url: shareUrl })
-        return
-      } catch (_) { /* fall through to clipboard */ }
-    }
-    try {
-      await navigator.clipboard.writeText(shareUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (_) {}
+    const result = await shareContent(payload)
+    if (result === 'cancelled') return
+    setStatus(result)
+    setTimeout(() => setStatus(null), 2000)
   }
 
+  const text =
+    status === 'copied' ? '✓ Copied!' :
+    status === 'shared' ? '✓ Shared!' :
+    status === 'failed' ? 'Copy failed' : label
+
+  if (styleAs === 'button') {
+    return (
+      <button
+        onClick={handleShare}
+        className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 active:scale-95"
+      >
+        {text}
+      </button>
+    )
+  }
   return (
     <button
       onClick={handleShare}
       className="flex-shrink-0 text-xs text-blue-400 hover:text-blue-300 transition"
     >
-      {copied ? '✓ Copied!' : label}
+      {text}
     </button>
   )
 }
@@ -344,7 +351,7 @@ export default function PublicGamePage() {
         <Link to="/tournaments" className="flex-shrink-0 text-xs text-gray-600 hover:text-gray-400">Tournaments</Link>
         <Link to="/leagues" className="flex-shrink-0 text-xs text-gray-600 hover:text-gray-400">Leagues</Link>
         <div className="ml-auto flex-shrink-0">
-          <ShareButton joinCode={game.joinCode} label="⬆ Share" />
+          <ShareButton payload={gameSharePayload(game, gameId)} label="⬆ Share" />
         </div>
       </div>
 
@@ -373,6 +380,23 @@ export default function PublicGamePage() {
         ? <BaseballScoreboardHeader game={game} onTeamClick={goToTeamStats} />
         : <BasketballScoreboardHeader game={game} localSeconds={localSeconds} onTeamClick={goToTeamStats} />
       }
+
+      {/* Share prompt — turn every viewer into a distributor */}
+      {(isLive || isFinal) && (
+        <div className="mx-4 mt-4 flex items-center justify-between gap-3 rounded-2xl bg-[#1a1f2e] p-4 ring-1 ring-white/5">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white">
+              {isFinal ? 'Share the final score' : 'Share this game'}
+            </p>
+            <p className="text-xs text-gray-500">
+              {isFinal
+                ? 'Let fans who missed it see the result and box score.'
+                : 'Invite parents and fans to follow along live.'}
+            </p>
+          </div>
+          <ShareButton payload={gameSharePayload(game, gameId)} label="Share" styleAs="button" />
+        </div>
+      )}
 
       {/* Fan strip — Become a Fan of each team + views counter */}
       <FanStrip

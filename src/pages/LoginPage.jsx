@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { loginWithEmail, registerWithEmail, loginWithGoogle } from '../firebase/auth'
 import { useAuth } from '../context/AuthContext'
 import { getUser } from '../firebase/firestore'
 
 export default function LoginPage() {
+  useDocumentTitle('Sign in')
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()

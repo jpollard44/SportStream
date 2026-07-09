@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sportstream-91d22.web.app/sitemap.xml

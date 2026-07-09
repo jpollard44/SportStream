@@ -40,12 +40,27 @@ export default [
     },
   },
 
-  // Cloud Functions (Node CJS)
+  // Cloud Functions (Node CJS) — excluding ESM test files handled below
   {
     files: ['functions/**/*.js'],
+    ignores: ['functions/**/*.test.js'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'commonjs',
+      globals: { ...globals.node },
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  },
+
+  // Vitest test files for Cloud Functions (ESM harness over CJS modules)
+  {
+    files: ['functions/**/*.test.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
       globals: { ...globals.node },
     },
     rules: {

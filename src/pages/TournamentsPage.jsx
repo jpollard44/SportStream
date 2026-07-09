@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { subscribeToOpenTournaments, getTournamentByJoinCode } from '../firebase/tournaments'
@@ -15,6 +16,7 @@ const STATUS_CONFIG = {
 }
 
 export default function TournamentsPage() {
+  useDocumentTitle('Tournaments')
   const { user } = useAuth()
   const navigate  = useNavigate()
   const [tournaments, setTournaments] = useState([])

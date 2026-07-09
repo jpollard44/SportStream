@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -28,6 +29,7 @@ function RecordBadge({ record }) {
 }
 
 export default function DashboardPage() {
+  useDocumentTitle('Dashboard')
   const { user } = useAuth()
   const navigate = useNavigate()
   const [tab, setTab] = useState('home')
