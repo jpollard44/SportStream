@@ -1,7 +1,8 @@
 // SportStream UI Component Library
 // Import individual components: import { AppButton, AppCard, ... } from '../components/ui'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { shareContent } from '../../lib/share'
 
 // ── AppButton ──────────────────────────────────────────────────────────────────
 export function AppButton({
@@ -239,6 +240,54 @@ export function SkeletonCard({ lines = 3 }) {
         <div key={i} className={`skeleton h-3 ${i % 2 === 0 ? 'w-full' : 'w-3/4'}`} />
       ))}
     </div>
+  )
+}
+
+// ── ShareButton ────────────────────────────────────────────────────────────────
+// Native share sheet on mobile, copy-to-clipboard fallback on desktop, with a
+// transient confirmation. `payload` is a { title, text, url } object or a
+// function returning one (defer building until the click).
+export function ShareButton({
+  payload,
+  label = 'Share',
+  variant = 'secondary',
+  size = 'sm',
+  fullWidth = false,
+  className = '',
+  onShared,
+}) {
+  const [status, setStatus] = useState(null) // 'shared' | 'copied' | 'failed'
+
+  async function handleShare() {
+    const data = typeof payload === 'function' ? payload() : payload
+    const result = await shareContent(data)
+    if (result === 'cancelled') return
+    setStatus(result)
+    if ((result === 'shared' || result === 'copied') && onShared) onShared(result)
+    setTimeout(() => setStatus(null), 2200)
+  }
+
+  const text =
+    status === 'copied' ? 'Link copied!' :
+    status === 'shared' ? 'Shared!' :
+    status === 'failed' ? 'Copy failed' : label
+
+  return (
+    <AppButton variant={variant} size={size} fullWidth={fullWidth} className={className} onClick={handleShare}>
+      <ShareIcon />
+      {text}
+    </AppButton>
+  )
+}
+
+function ShareIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
+    </svg>
   )
 }
 

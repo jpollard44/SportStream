@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { uploadLeaguePhoto } from '../firebase/storage'
@@ -14,6 +15,8 @@ import {
 } from '../firebase/leagues'
 import { createGame, updateGame } from '../firebase/firestore'
 import { generateUniqueJoinCode } from '../lib/generateJoinCode'
+import { ShareButton } from '../components/ui'
+import { leagueInvitePayload } from '../lib/share'
 
 const SPORT_EMOJI = {
   basketball: '🏀', baseball: '⚾', softball: '🥎',
@@ -34,6 +37,7 @@ export default function LeaguePage() {
   const { user }     = useAuth()
 
   const [league, setLeague]   = useState(null)
+  useDocumentTitle(league?.name)
   const [teams, setTeams]     = useState([])
   const [games, setGames]     = useState([])
   const [tab, setTab]         = useState('standings')
@@ -202,6 +206,9 @@ export default function LeaguePage() {
               <span className="font-mono text-sm font-extrabold tracking-widest text-blue-400">{league.joinCode}</span>
               <span className="text-[10px] text-gray-600">copy</span>
             </button>
+            {league.status === 'registration' && (
+              <ShareButton payload={leagueInvitePayload(league, leagueId)} label="Invite teams" size="md" />
+            )}
           </div>
 
           {/* Host controls */}

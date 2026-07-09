@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -7,6 +8,7 @@ import {
   getHeadToHead, getRecentResults, getClubRecord,
 } from '../firebase/firestore'
 import { formatDate, nickDisplay } from '../lib/formatters'
+import { shareContent, teamSharePayload } from '../lib/share'
 import {
   computeBasketballStats, mergeBasketballStats,
   computeBaseballStats, mergeBaseballStats,
@@ -123,6 +125,7 @@ export default function TeamPage() {
   const { user } = useAuth()
 
   const [club, setClub]         = useState(null)
+  useDocumentTitle(club?.name)
   const [players, setPlayers]   = useState([])
   const [games, setGames]       = useState([])
   const [userDoc, setUserDoc]   = useState(null)
@@ -190,8 +193,9 @@ export default function TeamPage() {
     } finally { setFollowLoading(false) }
   }
 
-  function handleShare() {
-    navigator.clipboard.writeText(window.location.href)
+  async function handleShare() {
+    const result = await shareContent(teamSharePayload(club, clubId))
+    if (result === 'cancelled') return
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }

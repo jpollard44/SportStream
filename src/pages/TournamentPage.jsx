@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { uploadTournamentPhoto } from '../firebase/storage'
@@ -25,6 +26,8 @@ import {
 import { createGame, saveLineup, updateGame } from '../firebase/firestore'
 import { generateUniqueJoinCode } from '../lib/generateJoinCode'
 import BracketView from '../components/tournament/BracketView'
+import { ShareButton } from '../components/ui'
+import { tournamentInvitePayload } from '../lib/share'
 
 // ── Default game params by sport ──────────────────────────────────────────────
 function defaultGameParams(sport) {
@@ -70,6 +73,7 @@ export default function TournamentPage() {
   const navigate    = useNavigate()
 
   const [tournament, setTournament] = useState(null)
+  useDocumentTitle(tournament?.name)
   const [teams, setTeams]           = useState([])
   const [games, setGames]           = useState([])
   const [loading, setLoading]       = useState(true)
@@ -324,6 +328,7 @@ export default function TournamentPage() {
             >
               + Register Team
             </Link>
+            <ShareButton payload={tournamentInvitePayload(tournament, tourId)} label="Invite teams" size="md" />
           </div>
         )}
       </header>
